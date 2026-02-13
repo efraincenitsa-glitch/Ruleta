@@ -55,7 +55,7 @@ canvas{
 /* Puntero fijo (flecha) centrado arriba, apuntando hacia abajo */
 .puntero{
     position: absolute;
-    top: -6px;                   /* un poquito superpuesto al borde */
+    top: -6px;                   /* leve superposición al borde */
     left: 50%;
     transform: translateX(-50%);
     width: 0;
@@ -103,7 +103,41 @@ let girando=false;
 let anguloActual=0;              // rotación acumulada de la ruleta
 let indiceSeleccionado = -1;     // para resaltar el ganador
 
-const CX = 175, CY = 175, R = 170; // centro y radio
+const CX = 175, CY = 175, R = 170;         // centro y radio
+const TEXT_R = R - 35;                     // ⬅️ NUEVO: texto más cerca del borde/flecha
+const PUNTERO_ANG = -Math.PI/2;            // ⬅️ Flecha fija hacia arriba
+
+/* ========= Audio "tic" ========== */
+let audioCtx = null;                       // ⬅️ NUEVO
+function initAudio(){                      // ⬅️ NUEVO
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AC();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playTick(){                        // ⬅️ NUEVO (clic corto, con leve variación)
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  const base = 1550;
+  const jitter = (Math.random()*220) - 110; // ±110 Hz
+  osc.frequency.value = base + jitter;
+  osc.type = 'square';
+
+  // Envoltura rápida (ataque corto, decaimiento veloz)
+  gain.gain.setValueAtTime(0.0, t);
+  gain.gain.linearRampToValueAtTime(0.14, t + 0.006);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(t);
+  osc.stop(t + 0.07);
+}
+/* ================================= */
 
 function guardar(){
     localStorage.setItem("lista_ruleta",JSON.stringify(lista));
@@ -126,7 +160,7 @@ function dibujar(){
         ctx.fillStyle = `hsl(${i*360/lista.length},70%,50%)`;
         ctx.fill();
 
-        // Texto (centrado angularmente en el sector)
+        // Texto (centrado angularmente, más cerca del borde)
         ctx.save();
         ctx.translate(CX,CY);
         ctx.rotate(i*angulo + angulo/2);
@@ -134,7 +168,14 @@ function dibujar(){
         ctx.font="14px Arial";
         ctx.textAlign = "left";
         ctx.textBaseline = "middle";
-        ctx.fillText(lista[i].nombre, 80, 0);
+
+        // Limitar ancho del texto al arco disponible aproximado
+        const maxTextWidth = (angulo * (TEXT_R)); // aprox
+        ctx.shadowColor = "rgba(0,0,0,0.4)";      // ligera sombra para legibilidad
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
+        ctx.fillText(lista[i].nombre, TEXT_R, 0, Math.max(60, maxTextWidth));
         ctx.restore();
 
         // Resalte del seleccionado
@@ -163,7 +204,7 @@ function dibujar(){
     ctx.stroke();
 }
 
-// Dibujo inicial con la rotación actual (por si la hubiera)
+// Dibujo inicial con la rotación actual
 redibujarConRotacion();
 
 document.getElementById("agregar").onclick=function(){
@@ -229,6 +270,7 @@ const easings = {
  * Gira la ruleta y deja el centro del segmento 'index' justo bajo el puntero fijo,
  * que está apuntando hacia arriba (ángulo -PI/2).
  * - Vueltas, duración, dirección y easing aleatorios en cada giro.
+ * - Genera "tic" cada vez que el puntero cruza una separación de sector.
  */
 function girarYSeleccionar(index, callback){
     if (girando) return;
@@ -238,56 +280,76 @@ function girarYSeleccionar(index, callback){
     const anguloSeg = 2*Math.PI/n;
     const dosPI = 2*Math.PI;
 
-    // Puntero fijo hacia arriba
-    const anguloPuntero = -Math.PI/2;
-
-    // Centro del segmento objetivo (coincide con donde pintamos el texto)
-    const anguloCentroSegmento = index*anguloSeg + anguloSeg/2;
-
     // Ángulo actual normalizado (por si venimos de un giro previo)
     const anguloInicio = ((anguloActual % dosPI) + dosPI) % dosPI;
 
-    // Queremos que (anguloCentroSegmento + anguloFinal) % 2π = anguloPuntero
-    // => anguloFinal ≡ anguloPuntero - anguloCentroSegmento  (mod 2π)
-    // A partir de anguloInicio, el delta mínimo positivo es:
-    let deltaNorm = (anguloPuntero - anguloCentroSegmento - anguloInicio) % dosPI;
+    // Centro del segmento objetivo
+    const anguloCentroSegmento = index*anguloSeg + anguloSeg/2;
+
+    // Queremos que (anguloCentroSegmento + anguloFinal) ≡ PUNTERO_ANG  (mod 2π)
+    // Desde anguloInicio, deltaNorm mínimo positivo:
+    let deltaNorm = (PUNTERO_ANG - anguloCentroSegmento - anguloInicio) % dosPI;
     deltaNorm = (deltaNorm + dosPI) % dosPI;
 
     // Aleatoriedades del giro
     const vueltas = Math.floor(5 + Math.random()*6);            // 5..10 vueltas
     const duracion = 2200 + Math.random()*2200;                 // 2200..4400 ms
-    const dirs = [1, -1];
-    const dir = dirs[Math.floor(Math.random()*dirs.length)];    // horario/antihorario
+    const dir = Math.random() < 0.5 ? 1 : -1;                   // horario/antihorario
     const easingNames = Object.keys(easings);
     const easing = easings[easingNames[Math.floor(Math.random()*easingNames.length)]];
 
     // Si vamos en sentido positivo: sumamos deltaNorm
     // Si vamos en sentido negativo: desplazamos hacia atrás lo equivalente
-    const deltaHaciaAtras = (dosPI - deltaNorm) % dosPI;
+    const deltaAtras = (dosPI - deltaNorm) % dosPI;
     const deltaTotal = dir === 1
         ? vueltas*dosPI + deltaNorm
-        : - (vueltas*dosPI + deltaHaciaAtras);
+        : - (vueltas*dosPI + deltaAtras);
 
-    // Animación con easing aleatorio
+    // ---- Control de "tic" por cruce de separaciones ----
+    // k = índice de sector cuyo LIMITE está bajo el puntero (0..n-1).
+    // Usamos 'rel' = (PUNTERO_ANG - theta) mod 2π y k = floor(rel/anguloSeg)
+    let prevK = null;
+    function actualizarTic(theta){
+        const rel = ((PUNTERO_ANG - theta) % dosPI + dosPI) % dosPI;
+        const k = Math.floor(rel / anguloSeg);
+        if (prevK === null){
+            prevK = k;
+            return;
+        }
+        if (k !== prevK){
+            // Podríamos reproducir múltiples tics si se saltan separaciones,
+            // pero a 60fps normalmente cambia de 1 en 1.
+            playTick();
+            prevK = k;
+        }
+    }
+    // -----------------------------------------------------
+
+    // Aseguramos que el AudioContext esté activo (necesita interacción del usuario)
+    initAudio();
+
     const inicio = performance.now();
-
     function animar(tiempo){
         let p = (tiempo - inicio) / duracion;
         if (p > 1) p = 1;
 
-        const e = easing(p); // factor ease-out
-        anguloActual = anguloInicio + deltaTotal * e;
+        const e = easing(p);
+        const theta = anguloInicio + deltaTotal * e;
+        anguloActual = theta;
+
+        // Actualizar "tic" en función del ángulo actual
+        actualizarTic(((theta % dosPI)+dosPI)%dosPI);
 
         redibujarConRotacion();
 
         if (p < 1){
             requestAnimationFrame(animar);
         }else{
-            // Al terminar, aterrizamos EXACTO en el objetivo (evitar error acumulado)
+            // Aterrizar exacto
             const anguloFinal = anguloInicio + deltaTotal;
             anguloActual = ((anguloFinal % dosPI) + dosPI) % dosPI;
 
-            indiceSeleccionado = index; // resaltar el ganador/seleccionado
+            indiceSeleccionado = index; // resalte
             redibujarConRotacion();
 
             girando = false;
@@ -299,41 +361,43 @@ function girarYSeleccionar(index, callback){
 }
 
 document.getElementById("iniciar").onclick=async function(){
-    if(lista.length<3){
+    if(lista.length < 3){
         alert("Necesitas mínimo 3 participantes");
         return;
     }
+
+    initAudio(); // asegura audio listo al primer clic
 
     let copia=[...lista];
 
     for(let i=0;i<3;i++){
         await new Promise(resolve=>{
-            // Elegimos un índice aleatorio sobre la lista "copia" visible
+            // Índice aleatorio sobre la lista "copia"
             const index = Math.floor(Math.random()*copia.length);
             girarYSeleccionar(index, seleccionado=>{
                 const elegido=copia[seleccionado];
                 if(i<2){
                     document.getElementById("resultado").innerText=elegido.nombre+" - FUERA ❌";
                     hablar(elegido.nombre+" fuera");
-                    // Eliminamos y limpiamos el resalte para la próxima ronda
+                    // Eliminamos y limpiamos resalte para la siguiente ronda
                     copia.splice(seleccionado,1);
                     indiceSeleccionado = -1;
                 }else{
                     document.getElementById("resultado").innerText="🏆 "+elegido.nombre+" GANADOR 🎉";
                     hablar(elegido.nombre+" ganador");
                     lanzarConfeti();
-                    // Dejamos el resalte del ganador visible
+                    // Dejamos resalte del ganador visible
                 }
                 resolve();
             });
         });
 
         if(i<2){
-            // Persistimos la lista reducida y redibujamos
+            // Persistimos la lista reducida
             lista=copia;
             guardar();
 
-            // 🔀 No reseteamos anguloActual para que cada giro inicie distinto
+            // No reseteamos anguloActual para que cada giro inicie distinto
             redibujarConRotacion();
 
             await new Promise(r=>setTimeout(r,1200));
