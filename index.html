@@ -103,13 +103,14 @@ let girando=false;
 let anguloActual=0;              // rotación acumulada de la ruleta
 let indiceSeleccionado = -1;     // para resaltar el ganador
 
-const CX = 175, CY = 175, R = 170;         // centro y radio
-const TEXT_R = R - 35;                     // ⬅️ NUEVO: texto más cerca del borde/flecha
-const PUNTERO_ANG = -Math.PI/2;            // ⬅️ Flecha fija hacia arriba
+const CX = 175, CY = 175, R = 170;          // centro y radio
+const TEXT_R_EDGE = R - 35;                 // radio cercano al borde (por si quieres volver) 
+const TEXT_R_CENTER = R - 60;               // ⬅️ CAMBIO: texto más adentro para centrar sin cortar
+const PUNTERO_ANG = -Math.PI/2;             // Flecha fija hacia arriba
 
 /* ========= Audio "tic" ========== */
-let audioCtx = null;                       // ⬅️ NUEVO
-function initAudio(){                      // ⬅️ NUEVO
+let audioCtx = null;
+function initAudio(){
   if (!audioCtx) {
     const AC = window.AudioContext || window.webkitAudioContext;
     audioCtx = new AC();
@@ -117,7 +118,7 @@ function initAudio(){                      // ⬅️ NUEVO
   if (audioCtx.state === 'suspended') audioCtx.resume();
 }
 
-function playTick(){                        // ⬅️ NUEVO (clic corto, con leve variación)
+function playTick(){
   if (!audioCtx) return;
   const t = audioCtx.currentTime;
   const osc = audioCtx.createOscillator();
@@ -128,7 +129,7 @@ function playTick(){                        // ⬅️ NUEVO (clic corto, con lev
   osc.frequency.value = base + jitter;
   osc.type = 'square';
 
-  // Envoltura rápida (ataque corto, decaimiento veloz)
+  // Envoltura rápida
   gain.gain.setValueAtTime(0.0, t);
   gain.gain.linearRampToValueAtTime(0.14, t + 0.006);
   gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
@@ -138,6 +139,34 @@ function playTick(){                        // ⬅️ NUEVO (clic corto, con lev
   osc.stop(t + 0.07);
 }
 /* ================================= */
+
+/* ========= Helper: texto ajustado y centrado ========= */
+// Reduce la fuente si el texto no cabe en el arco disponible.
+function drawFittedCenteredText(ctx, text, centerRadius, angleWidthRad, baseFontPx = 16, minFontPx = 10, paddingPx = 8){
+  // Ancho máximo permitido ~ arco útil en ese radio, menos padding a ambos lados.
+  const maxArcWidth = Math.max(40, (angleWidthRad * centerRadius) - (paddingPx * 2));
+
+  // Probar tamaños decrecientes hasta que quepa.
+  let size = baseFontPx;
+  ctx.font = `${size}px Arial`;
+  while (size > minFontPx && ctx.measureText(text).width > maxArcWidth){
+    size -= 1;
+    ctx.font = `${size}px Arial`;
+  }
+
+  // Estilo del texto y sombra ligera para legibilidad
+  ctx.fillStyle = "white";
+  ctx.textAlign = "center";     // ⬅️ CLAVE: centrado
+  ctx.textBaseline = "middle";
+  ctx.shadowColor = "rgba(0,0,0,0.4)";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
+
+  // Dibuja el texto con su centro en (centerRadius, 0)
+  ctx.fillText(text, centerRadius, 0, maxArcWidth);
+}
+/* ===================================================== */
 
 function guardar(){
     localStorage.setItem("lista_ruleta",JSON.stringify(lista));
@@ -160,23 +189,14 @@ function dibujar(){
         ctx.fillStyle = `hsl(${i*360/lista.length},70%,50%)`;
         ctx.fill();
 
-        // Texto (centrado angularmente, más cerca del borde)
+        // ======= TEXTO CENTRADO EN EL SECTOR =======  // ⬅️ CAMBIO
         ctx.save();
         ctx.translate(CX,CY);
-        ctx.rotate(i*angulo + angulo/2);
-        ctx.fillStyle="white";
-        ctx.font="14px Arial";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "middle";
-
-        // Limitar ancho del texto al arco disponible aproximado
-        const maxTextWidth = (angulo * (TEXT_R)); // aprox
-        ctx.shadowColor = "rgba(0,0,0,0.4)";      // ligera sombra para legibilidad
-        ctx.shadowBlur = 0;
-        ctx.shadowOffsetX = 1;
-        ctx.shadowOffsetY = 1;
-        ctx.fillText(lista[i].nombre, TEXT_R, 0, Math.max(60, maxTextWidth));
+        ctx.rotate(i*angulo + angulo/2);     // centro angular del sector
+        // Usamos un radio más hacia adentro para que no se corte
+        drawFittedCenteredText(ctx, lista[i].nombre, TEXT_R_CENTER, angulo, 16, 10, 10);
         ctx.restore();
+        // ===========================================
 
         // Resalte del seleccionado
         if (i === indiceSeleccionado) {
@@ -307,7 +327,6 @@ function girarYSeleccionar(index, callback){
 
     // ---- Control de "tic" por cruce de separaciones ----
     // k = índice de sector cuyo LIMITE está bajo el puntero (0..n-1).
-    // Usamos 'rel' = (PUNTERO_ANG - theta) mod 2π y k = floor(rel/anguloSeg)
     let prevK = null;
     function actualizarTic(theta){
         const rel = ((PUNTERO_ANG - theta) % dosPI + dosPI) % dosPI;
@@ -317,15 +336,13 @@ function girarYSeleccionar(index, callback){
             return;
         }
         if (k !== prevK){
-            // Podríamos reproducir múltiples tics si se saltan separaciones,
-            // pero a 60fps normalmente cambia de 1 en 1.
             playTick();
             prevK = k;
         }
     }
     // -----------------------------------------------------
 
-    // Aseguramos que el AudioContext esté activo (necesita interacción del usuario)
+    // Aseguramos que el AudioContext esté activo
     initAudio();
 
     const inicio = performance.now();
@@ -338,7 +355,8 @@ function girarYSeleccionar(index, callback){
         anguloActual = theta;
 
         // Actualizar "tic" en función del ángulo actual
-        actualizarTic(((theta % dosPI)+dosPI)%dosPI);
+        const dospiNorm = ((theta % dosPI)+dosPI)%dosPI;
+        actualizarTic(dospiNorm);
 
         redibujarConRotacion();
 
@@ -400,6 +418,7 @@ document.getElementById("iniciar").onclick=async function(){
             // No reseteamos anguloActual para que cada giro inicie distinto
             redibujarConRotacion();
 
+            // Pausa entre giros (ajústalo a tu gusto)
             await new Promise(r=>setTimeout(r,4000));
         }
     }
