@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -40,10 +39,32 @@ button{
 #iniciar{background:#facc15;}
 #limpiar{background:#dc2626;color:white;}
 
+/* Contenedor para poner puntero fijo encima del canvas */
+.ruleta-wrapper{
+    position: relative;
+    width: 350px;
+    height: 350px;
+    margin: 20px auto 0;
+}
+
 canvas{
-    margin-top:20px;
     background:white;
     border-radius:50%;
+}
+
+/* Puntero fijo (flecha) centrado arriba, apuntando hacia abajo */
+.puntero{
+    position: absolute;
+    top: -6px;                   /* un poquito superpuesto al borde */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 14px solid transparent;
+    border-right: 14px solid transparent;
+    border-bottom: 22px solid #ef4444; /* color de la flecha */
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,.5));
+    z-index: 2;
 }
 
 #resultado{
@@ -51,7 +72,6 @@ canvas{
     margin-top:20px;
     font-weight:bold;
 }
-
 </style>
 </head>
 <body>
@@ -67,46 +87,84 @@ canvas{
 <button id="limpiar">Limpiar Lista</button>
 </div>
 
-<canvas id="ruleta" width="350" height="350"></canvas>
+<!-- Envolvemos el canvas con un contenedor para poner el puntero encima -->
+<div class="ruleta-wrapper">
+  <div class="puntero" aria-hidden="true"></div>
+  <canvas id="ruleta" width="350" height="350"></canvas>
+</div>
 
 <div id="resultado"></div>
 
 <script>
-
 let lista = JSON.parse(localStorage.getItem("lista_ruleta")) || [];
 const canvas = document.getElementById("ruleta");
 const ctx = canvas.getContext("2d");
 let girando=false;
-let anguloActual=0;
+let anguloActual=0;              // rotación acumulada de la ruleta
+let indiceSeleccionado = -1;     // para resaltar el ganador
+
+const CX = 175, CY = 175, R = 170; // centro y radio
 
 function guardar(){
     localStorage.setItem("lista_ruleta",JSON.stringify(lista));
 }
 
 function dibujar(){
-    if(lista.length==0){
-        ctx.clearRect(0,0,350,350);
+    ctx.clearRect(0,0,350,350);
+
+    if(lista.length===0){
         return;
     }
+
     const angulo = 2*Math.PI/lista.length;
-    ctx.clearRect(0,0,350,350);
-    lista.forEach((item,i)=>{
+
+    for(let i=0;i<lista.length;i++){
+        // Sector
         ctx.beginPath();
-        ctx.moveTo(175,175);
-        ctx.arc(175,175,170,i*angulo,(i+1)*angulo);
-        ctx.fillStyle=`hsl(${i*360/lista.length},70%,50%)`;
+        ctx.moveTo(CX,CY);
+        ctx.arc(CX,CY,R,i*angulo,(i+1)*angulo);
+        ctx.fillStyle = `hsl(${i*360/lista.length},70%,50%)`;
         ctx.fill();
+
+        // Texto (centrado angularmente en el sector)
         ctx.save();
-        ctx.translate(175,175);
-        ctx.rotate(i*angulo+angulo/2);
+        ctx.translate(CX,CY);
+        ctx.rotate(i*angulo + angulo/2);
         ctx.fillStyle="white";
         ctx.font="14px Arial";
-        ctx.fillText(item.nombre,80,5);
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillText(lista[i].nombre, 80, 0);
         ctx.restore();
-    });
+
+        // Resalte del seleccionado
+        if (i === indiceSeleccionado) {
+            ctx.save();
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = "#ffffffcc";
+            ctx.beginPath();
+            ctx.arc(CX, CY, R-3, i*angulo, (i+1)*angulo);
+            ctx.stroke();
+
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = "#fde047"; // amarillo
+            ctx.beginPath();
+            ctx.arc(CX, CY, R-12, i*angulo, (i+1)*angulo);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    // Borde exterior
+    ctx.beginPath();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = "#0f172a";
+    ctx.arc(CX, CY, R, 0, 2*Math.PI);
+    ctx.stroke();
 }
 
-dibujar();
+// Dibujo inicial con la rotación actual (por si la hubiera)
+redibujarConRotacion();
 
 document.getElementById("agregar").onclick=function(){
     const nombre=document.getElementById("nombre").value.trim();
@@ -120,7 +178,7 @@ document.getElementById("agregar").onclick=function(){
 
     lista.push({nombre,numero});
     guardar();
-    dibujar();
+    redibujarConRotacion();
     document.getElementById("nombre").value="";
     document.getElementById("numero").value="";
 };
@@ -128,7 +186,9 @@ document.getElementById("agregar").onclick=function(){
 document.getElementById("limpiar").onclick=function(){
     lista=[];
     guardar();
-    dibujar();
+    indiceSeleccionado=-1;
+    anguloActual=0;
+    redibujarConRotacion();
     document.getElementById("resultado").innerText="";
 };
 
@@ -140,39 +200,105 @@ function hablar(texto){
     speechSynthesis.speak(msg);
 }
 
-function girarYSeleccionar(callback){
-    const vueltas=6;
-    const index=Math.floor(Math.random()*lista.length);
-    const anguloFinal=(2*Math.PI/lista.length)*index;
-    const rotacion=(vueltas*2*Math.PI)+anguloFinal;
+// Redibuja respetando la rotación actual del canvas
+function redibujarConRotacion(){
+    ctx.save();
+    ctx.clearRect(0,0,350,350);
+    ctx.translate(CX,CY);
+    ctx.rotate(anguloActual);
+    ctx.translate(-CX,-CY);
+    dibujar();
+    ctx.restore();
+}
 
-    const inicio=performance.now();
-    const duracion=3000;
+/**
+ * Easing functions (para variar la "sensación" del giro)
+ */
+const easings = {
+  easeOutCubic: t => 1 - Math.pow(1 - t, 3),
+  easeOutQuint: t => 1 - Math.pow(1 - t, 5),
+  easeOutExpo:  t => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t)),
+  easeOutBack:  t => {
+      const s = 1.70158;
+      const inv = t - 1;
+      return 1 + (s + 1)*Math.pow(inv,3) + s*Math.pow(inv,2);
+  }
+};
+
+/**
+ * Gira la ruleta y deja el centro del segmento 'index' justo bajo el puntero fijo,
+ * que está apuntando hacia arriba (ángulo -PI/2).
+ * - Vueltas, duración, dirección y easing aleatorios en cada giro.
+ */
+function girarYSeleccionar(index, callback){
+    if (girando) return;
+    girando = true;
+
+    const n = lista.length;
+    const anguloSeg = 2*Math.PI/n;
+    const dosPI = 2*Math.PI;
+
+    // Puntero fijo hacia arriba
+    const anguloPuntero = -Math.PI/2;
+
+    // Centro del segmento objetivo (coincide con donde pintamos el texto)
+    const anguloCentroSegmento = index*anguloSeg + anguloSeg/2;
+
+    // Ángulo actual normalizado (por si venimos de un giro previo)
+    const anguloInicio = ((anguloActual % dosPI) + dosPI) % dosPI;
+
+    // Queremos que (anguloCentroSegmento + anguloFinal) % 2π = anguloPuntero
+    // => anguloFinal ≡ anguloPuntero - anguloCentroSegmento  (mod 2π)
+    // A partir de anguloInicio, el delta mínimo positivo es:
+    let deltaNorm = (anguloPuntero - anguloCentroSegmento - anguloInicio) % dosPI;
+    deltaNorm = (deltaNorm + dosPI) % dosPI;
+
+    // Aleatoriedades del giro
+    const vueltas = Math.floor(5 + Math.random()*6);            // 5..10 vueltas
+    const duracion = 2200 + Math.random()*2200;                 // 2200..4400 ms
+    const dirs = [1, -1];
+    const dir = dirs[Math.floor(Math.random()*dirs.length)];    // horario/antihorario
+    const easingNames = Object.keys(easings);
+    const easing = easings[easingNames[Math.floor(Math.random()*easingNames.length)]];
+
+    // Si vamos en sentido positivo: sumamos deltaNorm
+    // Si vamos en sentido negativo: desplazamos hacia atrás lo equivalente
+    const deltaHaciaAtras = (dosPI - deltaNorm) % dosPI;
+    const deltaTotal = dir === 1
+        ? vueltas*dosPI + deltaNorm
+        : - (vueltas*dosPI + deltaHaciaAtras);
+
+    // Animación con easing aleatorio
+    const inicio = performance.now();
 
     function animar(tiempo){
-        let progreso=(tiempo-inicio)/duracion;
-        if(progreso>1) progreso=1;
+        let p = (tiempo - inicio) / duracion;
+        if (p > 1) p = 1;
 
-        anguloActual=rotacion*progreso;
-        ctx.save();
-        ctx.clearRect(0,0,350,350);
-        ctx.translate(175,175);
-        ctx.rotate(anguloActual);
-        ctx.translate(-175,-175);
-        dibujar();
-        ctx.restore();
+        const e = easing(p); // factor ease-out
+        anguloActual = anguloInicio + deltaTotal * e;
 
-        if(progreso<1){
+        redibujarConRotacion();
+
+        if (p < 1){
             requestAnimationFrame(animar);
         }else{
+            // Al terminar, aterrizamos EXACTO en el objetivo (evitar error acumulado)
+            const anguloFinal = anguloInicio + deltaTotal;
+            anguloActual = ((anguloFinal % dosPI) + dosPI) % dosPI;
+
+            indiceSeleccionado = index; // resaltar el ganador/seleccionado
+            redibujarConRotacion();
+
+            girando = false;
             callback(index);
         }
     }
+
     requestAnimationFrame(animar);
 }
 
 document.getElementById("iniciar").onclick=async function(){
-
     if(lista.length<3){
         alert("Necesitas mínimo 3 participantes");
         return;
@@ -181,28 +307,36 @@ document.getElementById("iniciar").onclick=async function(){
     let copia=[...lista];
 
     for(let i=0;i<3;i++){
-
         await new Promise(resolve=>{
-            girarYSeleccionar(index=>{
-                const elegido=copia[index];
+            // Elegimos un índice aleatorio sobre la lista "copia" visible
+            const index = Math.floor(Math.random()*copia.length);
+            girarYSeleccionar(index, seleccionado=>{
+                const elegido=copia[seleccionado];
                 if(i<2){
                     document.getElementById("resultado").innerText=elegido.nombre+" - FUERA ❌";
                     hablar(elegido.nombre+" fuera");
-                    copia.splice(index,1);
+                    // Eliminamos y limpiamos el resalte para la próxima ronda
+                    copia.splice(seleccionado,1);
+                    indiceSeleccionado = -1;
                 }else{
                     document.getElementById("resultado").innerText="🏆 "+elegido.nombre+" GANADOR 🎉";
                     hablar(elegido.nombre+" ganador");
                     lanzarConfeti();
+                    // Dejamos el resalte del ganador visible
                 }
                 resolve();
             });
         });
 
         if(i<2){
+            // Persistimos la lista reducida y redibujamos
             lista=copia;
             guardar();
-            dibujar();
-            await new Promise(r=>setTimeout(r,3000));
+
+            // 🔀 No reseteamos anguloActual para que cada giro inicie distinto
+            redibujarConRotacion();
+
+            await new Promise(r=>setTimeout(r,1200));
         }
     }
 };
@@ -230,7 +364,6 @@ function lanzarConfeti(){
         anim.onfinish=()=>div.remove();
     }
 }
-
 </script>
 
 </body>
