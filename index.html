@@ -39,7 +39,6 @@ button{
 #iniciar{background:#facc15;}
 #limpiar{background:#dc2626;color:white;}
 
-/* 🔥 MOSTRAR NOMBRE SELECCIONADO */
 #resultado{
     font-size:30px;
     margin-top:20px;
@@ -48,7 +47,6 @@ button{
     transition: all .3s;
 }
 
-/* Contenedor para puntero */
 .ruleta-wrapper{
     position: relative;
     width: 350px;
@@ -61,7 +59,6 @@ canvas{
     border-radius:50%;
 }
 
-/* Flecha */
 .puntero{
     position: absolute;
     top: -6px;
@@ -101,6 +98,7 @@ canvas{
 let lista = JSON.parse(localStorage.getItem("lista_ruleta")) || [];
 const canvas = document.getElementById("ruleta");
 const ctx = canvas.getContext("2d");
+
 let girando=false;
 let anguloActual=0;
 let indiceSeleccionado = -1;
@@ -118,22 +116,9 @@ function initAudio(){
   }
   if (audioCtx.state === 'suspended') audioCtx.resume();
 }
-function playTick(){
-  if (!audioCtx) return;
-  const t = audioCtx.currentTime;
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.frequency.value = 1500;
-  osc.type = 'square';
-  gain.gain.setValueAtTime(0.15, t);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
-  osc.connect(gain).connect(audioCtx.destination);
-  osc.start(t);
-  osc.stop(t + 0.07);
-}
 
-/* ========= TEXTO AJUSTADO ========= */
-function drawFittedCenteredText(ctx, text, centerRadius, angleWidthRad){
+/* ========= TEXTO ========= */
+function drawFittedCenteredText(ctx, text, centerRadius){
   ctx.font = "16px Arial";
   ctx.fillStyle = "white";
   ctx.textAlign = "center";
@@ -161,7 +146,7 @@ function dibujar(){
         ctx.save();
         ctx.translate(CX,CY);
         ctx.rotate(i*angulo + angulo/2);
-        drawFittedCenteredText(ctx, lista[i].nombre, TEXT_R_CENTER, angulo);
+        drawFittedCenteredText(ctx, lista[i].nombre, TEXT_R_CENTER);
         ctx.restore();
 
         if (i === indiceSeleccionado) {
@@ -192,10 +177,48 @@ function redibujarConRotacion(){
 
 redibujarConRotacion();
 
-/* ========= MOSTRAR NOMBRE 3 SEGUNDOS ========= */
+/* ========= AGREGAR ========= */
+document.getElementById("agregar").onclick=function(){
+    const nombre=document.getElementById("nombre").value.trim();
+    const numero=document.getElementById("numero").value.trim();
+
+    if(!nombre || !numero){
+        alert("Completa los datos");
+        return;
+    }
+
+    if(lista.some(x=>x.numero==numero)){
+        alert("Ese número ya fue agregado");
+        return;
+    }
+
+    lista.push({nombre,numero});
+    guardar();
+    redibujarConRotacion();
+
+    document.getElementById("nombre").value="";
+    document.getElementById("numero").value="";
+};
+
+/* ========= LIMPIAR LISTA CON CONFIRMACIÓN ========= */
+document.getElementById("limpiar").onclick=function(){
+
+    if(!confirm("¿Seguro que deseas borrar toda la lista?")) return;
+
+    lista = [];
+    guardar();
+
+    indiceSeleccionado = -1;
+    anguloActual = 0;
+
+    redibujarConRotacion();
+
+    document.getElementById("resultado").innerText = "";
+};
+
+/* ========= MOSTRAR NOMBRE ========= */
 function mostrarNombreAntesDeGirar(nombre){
-    const r = document.getElementById("resultado");
-    r.innerText = "🎯 " + nombre;
+    document.getElementById("resultado").innerText = "🎯 " + nombre;
 }
 
 /* ========= GIRAR ========= */
@@ -232,7 +255,7 @@ function girarYSeleccionar(index, callback){
     requestAnimationFrame(animar);
 }
 
-/* ========= BOTÓN INICIAR ========= */
+/* ========= INICIAR ========= */
 document.getElementById("iniciar").onclick=async function(){
 
     if(lista.length < 3){
@@ -249,7 +272,6 @@ document.getElementById("iniciar").onclick=async function(){
         const index = Math.floor(Math.random()*copia.length);
         const elegido = copia[index];
 
-        // 🔥 MOSTRAR NOMBRE 3 SEGUNDOS
         mostrarNombreAntesDeGirar(elegido.nombre);
         await new Promise(r=>setTimeout(r,3000));
 
