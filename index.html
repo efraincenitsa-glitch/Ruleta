@@ -128,20 +128,28 @@ canvas{
 <div id="pantallaGanador"></div>
 
 <script>
+
+/* ===== REFERENCIAS DOM (IMPORTANTE) ===== */
+const nombreInput = document.getElementById("nombre");
+const numeroInput = document.getElementById("numero");
+const resultado = document.getElementById("resultado");
+const pantallaGanador = document.getElementById("pantallaGanador");
+const btnAgregar = document.getElementById("agregar");
+const btnIniciar = document.getElementById("iniciar");
+const btnLimpiar = document.getElementById("limpiar");
+
 let lista = JSON.parse(localStorage.getItem("lista_ruleta")) || [];
 const canvas = document.getElementById("ruleta");
 const ctx = canvas.getContext("2d");
 
-let girando=false;
-let anguloActual=0;
-let indiceSeleccionado=-1;
+let anguloActual = 0;
 
 const CX=180, CY=180, R=170;
 const PUNTERO_ANG=-Math.PI/2;
 
 /* ===== VOZ CASINO ===== */
 function hablar(texto, velocidad=0.9, tono=1){
-    const msg=new SpeechSynthesisUtterance(texto);
+    const msg = new SpeechSynthesisUtterance(texto);
     msg.lang="es-MX";
     msg.rate=velocidad;
     msg.pitch=tono;
@@ -191,11 +199,13 @@ function redibujar(){
 redibujar();
 
 /* ===== AGREGAR ===== */
-agregar.onclick=function(){
+btnAgregar.onclick=function(){
+
     const nombre=nombreInput.value.trim();
     const numero=numeroInput.value.trim();
 
-    if(!nombre||!numero) return alert("Completa los datos");
+    if(!nombre || !numero)
+        return alert("Completa los datos");
 
     if(lista.some(x=>x.numero==numero))
         return alert("Número duplicado");
@@ -209,12 +219,13 @@ agregar.onclick=function(){
 };
 
 /* ===== LIMPIAR ===== */
-limpiar.onclick=function(){
-    if(!confirm("¿Seguro que deseas borrar toda la lista?")) return;
+btnLimpiar.onclick=function(){
+
+    if(!confirm("¿Seguro que deseas borrar toda la lista?"))
+        return;
 
     lista=[];
     guardar();
-    indiceSeleccionado=-1;
     anguloActual=0;
     redibujar();
     resultado.innerText="";
@@ -222,33 +233,38 @@ limpiar.onclick=function(){
 
 /* ===== GIRAR ===== */
 function girar(index){
+
     return new Promise(resolve=>{
+
         const n=lista.length;
         const angSeg=2*Math.PI/n;
         const centro=index*angSeg+angSeg/2;
         const delta=PUNTERO_ANG-centro;
+
         const vueltas=6;
         const dur=3000;
         const ini=performance.now();
 
         function anim(t){
-            let p=(t-ini)/dur;
-            if(p>1)p=1;
 
-            anguloActual=delta*p+vueltas*2*Math.PI*p;
+            let p=(t-ini)/dur;
+            if(p>1) p=1;
+
+            anguloActual = delta*p + vueltas*2*Math.PI*p;
             redibujar();
 
             if(p<1) requestAnimationFrame(anim);
             else resolve();
         }
+
         requestAnimationFrame(anim);
     });
 }
 
 /* ===== INICIAR ===== */
-iniciar.onclick=async function(){
+btnIniciar.onclick=async function(){
 
-    if(lista.length<3)
+    if(lista.length < 3)
         return alert("Necesitas mínimo 3 participantes");
 
     let copia=[...lista];
@@ -266,14 +282,19 @@ iniciar.onclick=async function(){
         const e=copia[index];
 
         if(i<2){
+
             resultado.innerText=e.nombre+" - FUERA ❌";
-            hablar(e.nombre+" fuera");
+            hablar(e.nombre + " fuera");
+
             copia.splice(index,1);
             lista=copia;
             guardar();
             redibujar();
+
             await new Promise(r=>setTimeout(r,2000));
+
         }else{
+
             resultado.innerText="🏆 "+e.nombre+" GANADOR 🎉";
             hablar("Tenemos ganador. " + e.nombre,0.8,1.2);
 
