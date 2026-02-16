@@ -1,121 +1,121 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Ruleta Casino PRO</title>
 
-<link rel="apple-touch-icon" sizes="1024x1024" href="icono.png">
+<link rel="apple-touch-icon" sizes="1024x1024" href="icono.png" />
 
 <style>
-body{
-    margin:0;
-    font-family:Arial, sans-serif;
-    text-align:center;
-    background: radial-gradient(circle at top,#1b2a49,#0f172a);
-    color:white;
-}
+  body{
+      margin:0;
+      font-family:Arial, sans-serif;
+      text-align:center;
+      background: radial-gradient(circle at top,#1b2a49,#0f172a);
+      color:white;
+  }
 
-h1{margin-top:20px;}
+  h1{margin-top:20px;}
 
-input{
-    padding:10px;
-    margin:5px;
-    border-radius:8px;
-    border:none;
-    width:200px;
-}
+  input{
+      padding:10px;
+      margin:5px;
+      border-radius:8px;
+      border:none;
+      width:200px;
+  }
 
-button{
-    padding:10px 20px;
-    margin:10px;
-    border:none;
-    border-radius:8px;
-    font-weight:bold;
-    cursor:pointer;
-}
+  button{
+      padding:10px 20px;
+      margin:10px;
+      border:none;
+      border-radius:8px;
+      font-weight:bold;
+      cursor:pointer;
+  }
 
-#agregar{background:#16a34a;color:white;}
-#iniciar{background:#facc15;}
-#limpiar{background:#dc2626;color:white;}
+  #agregar{background:#16a34a;color:white;}
+  #iniciar{background:#facc15;}
+  #limpiar{background:#dc2626;color:white;}
 
-#resultado{
-    font-size:32px;
-    margin-top:20px;
-    font-weight:bold;
-    min-height:40px;
-}
+  #resultado{
+      font-size:32px;
+      margin-top:20px;
+      font-weight:bold;
+      min-height:40px;
+  }
 
-.ruleta-wrapper{
-    position: relative;
-    width: 360px;
-    height: 360px;
-    margin: 20px auto 0;
-}
+  .ruleta-wrapper{
+      position: relative;
+      width: 360px;
+      height: 360px;
+      margin: 20px auto 0;
+  }
 
-canvas{
-    background:white;
-    border-radius:50%;
-    box-shadow:0 0 20px #000;
-}
+  canvas{
+      background:white;
+      border-radius:50%;
+      box-shadow:0 0 20px #000;
+  }
 
-.puntero{
-    position:absolute;
-    top:-6px;
-    left:50%;
-    transform:translateX(-50%);
-    width:0;height:0;
-    border-left:14px solid transparent;
-    border-right:14px solid transparent;
-    border-bottom:22px solid #ef4444;
-    z-index:2;
-}
+  .puntero{
+      position:absolute;
+      top:-6px;
+      left:50%;
+      transform:translateX(-50%);
+      width:0;height:0;
+      border-left:14px solid transparent;
+      border-right:14px solid transparent;
+      border-bottom:22px solid #ef4444;
+      z-index:2;
+  }
 
-/* LED giratorio */
-.ruleta-wrapper::before{
-    content:"";
-    position:absolute;
-    inset:-12px;
-    border-radius:50%;
-    background:conic-gradient(
-        red, yellow, lime, cyan, blue, magenta, red
-    );
-    animation:led 2s linear infinite;
-    z-index:-1;
-}
+  /* LED giratorio */
+  .ruleta-wrapper::before{
+      content:"";
+      position:absolute;
+      inset:-12px;
+      border-radius:50%;
+      background:conic-gradient(
+          red, yellow, lime, cyan, blue, magenta, red
+      );
+      animation:led 2s linear infinite;
+      z-index:-1;
+  }
 
-@keyframes led{
-    from{transform:rotate(0deg);}
-    to{transform:rotate(360deg);}
-}
+  @keyframes led{
+      from{transform:rotate(0deg);}
+      to{transform:rotate(360deg);}
+  }
 
-/* Pantalla ganador gigante */
-#pantallaGanador{
-    position:fixed;
-    inset:0;
-    background:rgba(0,0,0,.9);
-    display:none;
-    align-items:center;
-    justify-content:center;
-    font-size:64px;
-    font-weight:bold;
-    color:#fde047;
-    text-align:center;
-    z-index:999;
-}
+  /* Pantalla ganador gigante */
+  #pantallaGanador{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.9);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      font-size:64px;
+      font-weight:bold;
+      color:#fde047;
+      text-align:center;
+      z-index:999;
+  }
 </style>
 </head>
 <body>
 
 <h1>🎰 Ruleta Casino PRO</h1>
 
-<input id="nombre" placeholder="Nombre">
-<input id="numero" placeholder="Número" type="number">
+<input id="nombre" placeholder="Nombre" />
+<input id="numero" placeholder="Número" type="number" />
 <button id="agregar">Agregar</button>
 
 <div>
-<button id="iniciar">Iniciar Ruleta</button>
-<button id="limpiar">Limpiar Lista</button>
+  <button id="iniciar">Iniciar Ruleta</button>
+  <button id="limpiar">Limpiar Lista</button>
 </div>
 
 <div class="ruleta-wrapper">
@@ -128,184 +128,195 @@ canvas{
 <div id="pantallaGanador"></div>
 
 <script>
-
-/* ===== REFERENCIAS DOM (IMPORTANTE) ===== */
-const nombreInput = document.getElementById("nombre");
-const numeroInput = document.getElementById("numero");
-const resultado = document.getElementById("resultado");
-const pantallaGanador = document.getElementById("pantallaGanador");
-const btnAgregar = document.getElementById("agregar");
-const btnIniciar = document.getElementById("iniciar");
-const btnLimpiar = document.getElementById("limpiar");
-
-let lista = JSON.parse(localStorage.getItem("lista_ruleta")) || [];
+/* ====== REFERENCIAS A ELEMENTOS ====== */
 const canvas = document.getElementById("ruleta");
 const ctx = canvas.getContext("2d");
+const nombreInput = document.getElementById("nombre");
+const numeroInput = document.getElementById("numero");
+const agregar = document.getElementById("agregar");
+const iniciar = document.getElementById("iniciar");
+const limpiar = document.getElementById("limpiar");
+const resultado = document.getElementById("resultado");
+const pantallaGanador = document.getElementById("pantallaGanador");
 
-let anguloActual = 0;
+/* ====== ESTADO ====== */
+let lista = JSON.parse(localStorage.getItem("lista_ruleta")) || [];
+let girando = false;
+let anguloActual = 0;     // Rotación acumulada de la ruleta
+let indiceSeleccionado = -1;
 
 const CX=180, CY=180, R=170;
-const PUNTERO_ANG=-Math.PI/2;
+const PUNTERO_ANG=-Math.PI/2; // El puntero mira hacia arriba
+
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
 /* ===== VOZ CASINO ===== */
 function hablar(texto, velocidad=0.9, tono=1){
-    const msg = new SpeechSynthesisUtterance(texto);
-    msg.lang="es-MX";
-    msg.rate=velocidad;
-    msg.pitch=tono;
-    speechSynthesis.cancel();
-    speechSynthesis.speak(msg);
+  const msg=new SpeechSynthesisUtterance(texto);
+  msg.lang="es-MX";
+  msg.rate=velocidad;
+  msg.pitch=tono;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(msg);
 }
 
 function guardar(){
-    localStorage.setItem("lista_ruleta",JSON.stringify(lista));
+  localStorage.setItem("lista_ruleta", JSON.stringify(lista));
 }
 
 /* ===== DIBUJAR ===== */
 function dibujar(){
-    ctx.clearRect(0,0,360,360);
-    if(lista.length===0) return;
+  ctx.clearRect(0,0,360,360);
+  if(lista.length===0) return;
 
-    const ang=2*Math.PI/lista.length;
+  const ang=2*Math.PI/lista.length;
 
-    for(let i=0;i<lista.length;i++){
-        ctx.beginPath();
-        ctx.moveTo(CX,CY);
-        ctx.arc(CX,CY,R,i*ang,(i+1)*ang);
-        ctx.fillStyle=`hsl(${i*360/lista.length},70%,50%)`;
-        ctx.fill();
+  for(let i=0;i<lista.length;i++){
+    ctx.beginPath();
+    ctx.moveTo(CX,CY);
+    ctx.arc(CX,CY,R, i*ang, (i+1)*ang);
+    ctx.fillStyle=`hsl(${i*360/lista.length},70%,50%)`;
+    ctx.fill();
 
-        ctx.save();
-        ctx.translate(CX,CY);
-        ctx.rotate(i*ang+ang/2);
-        ctx.fillStyle="white";
-        ctx.textAlign="center";
-        ctx.font="16px Arial";
-        ctx.fillText(lista[i].nombre,R-60,0);
-        ctx.restore();
-    }
+    // Etiqueta
+    ctx.save();
+    ctx.translate(CX,CY);
+    ctx.rotate(i*ang + ang/2);
+    ctx.fillStyle="white";
+    ctx.textAlign="center";
+    ctx.font="16px Arial";
+    ctx.fillText(lista[i].nombre, R-60, 0);
+    ctx.restore();
+  }
 }
 
 function redibujar(){
-    ctx.save();
-    ctx.clearRect(0,0,360,360);
-    ctx.translate(CX,CY);
-    ctx.rotate(anguloActual);
-    ctx.translate(-CX,-CY);
-    dibujar();
-    ctx.restore();
+  ctx.save();
+  ctx.clearRect(0,0,360,360);
+  ctx.translate(CX,CY);
+  ctx.rotate(anguloActual);
+  ctx.translate(-CX,-CY);
+  dibujar();
+  ctx.restore();
 }
 
+// Inicial
 redibujar();
 
 /* ===== AGREGAR ===== */
-btnAgregar.onclick=function(){
+agregar.onclick=function(){
+  const nombre = nombreInput.value.trim();
+  const numero = numeroInput.value.trim();
+  if(!nombre || !numero) return alert("Completa los datos");
 
-    const nombre=nombreInput.value.trim();
-    const numero=numeroInput.value.trim();
+  if(lista.some(x => x.numero == numero))
+    return alert("Número duplicado");
 
-    if(!nombre || !numero)
-        return alert("Completa los datos");
+  lista.push({ nombre, numero });
+  guardar();
+  redibujar();
 
-    if(lista.some(x=>x.numero==numero))
-        return alert("Número duplicado");
-
-    lista.push({nombre,numero});
-    guardar();
-    redibujar();
-
-    nombreInput.value="";
-    numeroInput.value="";
+  nombreInput.value = "";
+  numeroInput.value = "";
 };
 
 /* ===== LIMPIAR ===== */
-btnLimpiar.onclick=function(){
-
-    if(!confirm("¿Seguro que deseas borrar toda la lista?"))
-        return;
-
-    lista=[];
-    guardar();
-    anguloActual=0;
-    redibujar();
-    resultado.innerText="";
+limpiar.onclick=function(){
+  if(!confirm("¿Seguro que deseas borrar toda la lista?")) return;
+  lista=[];
+  guardar();
+  indiceSeleccionado=-1;
+  anguloActual=0;
+  redibujar();
+  resultado.innerText="";
 };
 
-/* ===== GIRAR ===== */
+/* ===== GIRAR (ajustado para caer EXACTO en el segmento) ===== */
 function girar(index){
+  return new Promise(resolve=>{
+    const n = lista.length;
+    const angSeg = 2*Math.PI/n;
+    const centro = index*angSeg + angSeg/2;      // centro del segmento elegido (en sistema sin rotación)
+    const objetivoBase = PUNTERO_ANG - centro;   // ángulo que al aplicar dejará el centro bajo el puntero
 
-    return new Promise(resolve=>{
+    const dosPI = 2*Math.PI;
+    const inicio = anguloActual;
+    // Diferencia normalizada entre el objetivo y la rotación actual
+    let diff = (objetivoBase - (inicio % dosPI));
+    diff = (diff % dosPI + dosPI) % dosPI;       // [0, 2π)
 
-        const n=lista.length;
-        const angSeg=2*Math.PI/n;
-        const centro=index*angSeg+angSeg/2;
-        const delta=PUNTERO_ANG-centro;
+    const vueltas = 6;        // vueltas extra
+    const dur = 3000;         // ms
+    const final = inicio + vueltas*dosPI + diff;
 
-        const vueltas=6;
-        const dur=3000;
-        const ini=performance.now();
+    const t0 = performance.now();
 
-        function anim(t){
+    function easeOutCubic(p){ return 1 - Math.pow(1-p,3); }
 
-            let p=(t-ini)/dur;
-            if(p>1) p=1;
+    function frame(t){
+      let p = Math.min(1, (t - t0) / dur);
+      const eased = easeOutCubic(p);
 
-            anguloActual = delta*p + vueltas*2*Math.PI*p;
-            redibujar();
+      anguloActual = inicio + (final - inicio)*eased;
+      redibujar();
 
-            if(p<1) requestAnimationFrame(anim);
-            else resolve();
-        }
-
-        requestAnimationFrame(anim);
-    });
+      if(p < 1){
+        requestAnimationFrame(frame);
+      }else{
+        // Ensamblar en [0, 2π) para que no crezca indefinidamente
+        anguloActual = ((final % dosPI) + dosPI) % dosPI;
+        redibujar();
+        resolve();
+      }
+    }
+    requestAnimationFrame(frame);
+  });
 }
 
 /* ===== INICIAR ===== */
-btnIniciar.onclick=async function(){
+iniciar.onclick = async function(){
+  if(girando) return;
+  if(lista.length < 3) return alert("Necesitas mínimo 3 participantes");
 
-    if(lista.length < 3)
-        return alert("Necesitas mínimo 3 participantes");
+  girando = true;
 
-    let copia=[...lista];
+  // Hacemos 3 giros:
+  for(let i=0; i<3; i++){
+    // Elegimos índice sobre la lista ACTUAL mostrada
+    const index = Math.floor(Math.random() * lista.length);
 
-    for(let i=0;i<3;i++){
+    // NO mostramos aún nombre — primero giramos
+    await girar(index);
 
-        const index=Math.floor(Math.random()*copia.length);
-        const elegido=copia[index];
+    // La ruleta ya se detuvo EXACTO en el seleccionado
+    const elegido = lista[index];
 
-        resultado.innerText="🎯 "+elegido.nombre;
-        hablar("Participa " + elegido.nombre);
+    if(i < 2){
+      // 1er y 2º giro → eliminado
+      resultado.innerText = elegido.nombre + " - FUERA ❌";
+      hablar(elegido.nombre + " fuera");
+      // Mostramos 3s el resultado SIN redibujar la ruleta con otra lista
+      await sleep(3000);
 
-        await girar(index);
+      // Ahora sí, eliminamos y guardamos
+      lista.splice(index, 1);
+      guardar();
+      // No hace falta redibujar ahora; el siguiente giro repintará.
+    }else{
+      // 3er giro → ganador
+      resultado.innerText = "🏆 " + elegido.nombre + " GANADOR 🎉";
+      hablar("Tenemos ganador. " + elegido.nombre, 0.8, 1.2);
 
-        const e=copia[index];
+      pantallaGanador.style.display = "flex";
+      pantallaGanador.innerHTML = "🏆<br>" + elegido.nombre;
 
-        if(i<2){
-
-            resultado.innerText=e.nombre+" - FUERA ❌";
-            hablar(e.nombre + " fuera");
-
-            copia.splice(index,1);
-            lista=copia;
-            guardar();
-            redibujar();
-
-            await new Promise(r=>setTimeout(r,2000));
-
-        }else{
-
-            resultado.innerText="🏆 "+e.nombre+" GANADOR 🎉";
-            hablar("Tenemos ganador. " + e.nombre,0.8,1.2);
-
-            pantallaGanador.style.display="flex";
-            pantallaGanador.innerHTML="🏆<br>"+e.nombre;
-
-            setTimeout(()=>{
-                pantallaGanador.style.display="none";
-            },6000);
-        }
+      setTimeout(()=>{
+        pantallaGanador.style.display="none";
+      }, 6000);
     }
+  }
+
+  girando = false;
 };
 </script>
 
