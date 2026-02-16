@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Ruleta Casino PRO</title>
 
-<link rel="apple-touch-icon" sizes="1024x1024" href="icono.png" />
+<!-- Icono opcional para iOS -->
+<link rel="apple-touch-icon" sizes="1024x1024" href="icono.png">
 
 <style>
   body{
@@ -71,7 +72,7 @@
       z-index:2;
   }
 
-  /* LED giratorio */
+  /* LED giratorio decorativo */
   .ruleta-wrapper::before{
       content:"";
       position:absolute;
@@ -145,6 +146,9 @@ let girando = false;
 let anguloActual = 0;     // Rotación acumulada de la ruleta
 let indiceSeleccionado = -1;
 
+// Opacidades paralelas a la lista (1 = visible, 0 = invisible)
+let opacidades = lista.map(() => 1);
+
 const CX=180, CY=180, R=170;
 const PUNTERO_ANG=-Math.PI/2; // El puntero mira hacia arriba
 
@@ -164,7 +168,7 @@ function guardar(){
   localStorage.setItem("lista_ruleta", JSON.stringify(lista));
 }
 
-/* ===== DIBUJAR ===== */
+/* ===== DIBUJAR (usa opacidades por segmento) ===== */
 function dibujar(){
   ctx.clearRect(0,0,360,360);
   if(lista.length===0) return;
@@ -172,6 +176,11 @@ function dibujar(){
   const ang=2*Math.PI/lista.length;
 
   for(let i=0;i<lista.length;i++){
+    const alpha = (opacidades[i] ?? 1);
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
     ctx.beginPath();
     ctx.moveTo(CX,CY);
     ctx.arc(CX,CY,R, i*ang, (i+1)*ang);
@@ -179,15 +188,18 @@ function dibujar(){
     ctx.fill();
 
     // Etiqueta
-    ctx.save();
     ctx.translate(CX,CY);
     ctx.rotate(i*ang + ang/2);
     ctx.fillStyle="white";
     ctx.textAlign="center";
     ctx.font="16px Arial";
     ctx.fillText(lista[i].nombre, R-60, 0);
+
     ctx.restore();
   }
+
+  // Asegura alpha normal para lo demás
+  ctx.globalAlpha = 1;
 }
 
 function redibujar(){
@@ -213,6 +225,7 @@ agregar.onclick=function(){
     return alert("Número duplicado");
 
   lista.push({ nombre, numero });
+  opacidades.push(1);     // opacidad para el nuevo segmento
   guardar();
   redibujar();
 
@@ -224,6 +237,7 @@ agregar.onclick=function(){
 limpiar.onclick=function(){
   if(!confirm("¿Seguro que deseas borrar toda la lista?")) return;
   lista=[];
+  opacidades=[];
   guardar();
   indiceSeleccionado=-1;
   anguloActual=0;
@@ -231,16 +245,36 @@ limpiar.onclick=function(){
   resultado.innerText="";
 };
 
+/* ===== ANIMACIÓN DE DESVANECIMIENTO ===== */
+function animarDesvanecer(index, dur=600){
+  return new Promise(resolve=>{
+    const t0 = performance.now();
+    function frame(t){
+      const p = Math.min(1, (t - t0) / dur);
+      // 1 → 0
+      opacidades[index] = 1 - p;
+      redibujar();
+      if(p < 1){
+        requestAnimationFrame(frame);
+      }else{
+        resolve();
+      }
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
 /* ===== GIRAR (ajustado para caer EXACTO en el segmento) ===== */
 function girar(index){
   return new Promise(resolve=>{
     const n = lista.length;
     const angSeg = 2*Math.PI/n;
     const centro = index*angSeg + angSeg/2;      // centro del segmento elegido (en sistema sin rotación)
-    const objetivoBase = PUNTERO_ANG - centro;   // ángulo que al aplicar dejará el centro bajo el puntero
+    const objetivoBase = PUNTERO_ANG - centro;   // ángulo que al aplicar deja el centro bajo el puntero
 
     const dosPI = 2*Math.PI;
     const inicio = anguloActual;
+
     // Diferencia normalizada entre el objetivo y la rotación actual
     let diff = (objetivoBase - (inicio % dosPI));
     diff = (diff % dosPI + dosPI) % dosPI;       // [0, 2π)
@@ -250,7 +284,6 @@ function girar(index){
     const final = inicio + vueltas*dosPI + diff;
 
     const t0 = performance.now();
-
     function easeOutCubic(p){ return 1 - Math.pow(1-p,3); }
 
     function frame(t){
@@ -263,7 +296,7 @@ function girar(index){
       if(p < 1){
         requestAnimationFrame(frame);
       }else{
-        // Ensamblar en [0, 2π) para que no crezca indefinidamente
+        // Normaliza para no acumular infinitamente
         anguloActual = ((final % dosPI) + dosPI) % dosPI;
         redibujar();
         resolve();
@@ -280,30 +313,43 @@ iniciar.onclick = async function(){
 
   girando = true;
 
-  // Hacemos 3 giros:
+  // Tres giros
   for(let i=0; i<3; i++){
-    // Elegimos índice sobre la lista ACTUAL mostrada
+    // Elegimos índice sobre la lista ACTUAL
     const index = Math.floor(Math.random() * lista.length);
 
-    // NO mostramos aún nombre — primero giramos
+    // Primero giramos; al detenerse se sabrá el seleccionado real
     await girar(index);
 
-    // La ruleta ya se detuvo EXACTO en el seleccionado
     const elegido = lista[index];
 
     if(i < 2){
-      // 1er y 2º giro → eliminado
+      // 1º y 2º giro: eliminado
       resultado.innerText = elegido.nombre + " - FUERA ❌";
       hablar(elegido.nombre + " fuera");
-      // Mostramos 3s el resultado SIN redibujar la ruleta con otra lista
+
+      // Mantener 3s el nombre mostrado
       await sleep(3000);
 
-      // Ahora sí, eliminamos y guardamos
+      // Desvanecer el segmento seleccionado ANTES de eliminar
+      await animarDesvanecer(index, 600);
+
+      // Ahora sí, eliminar de la lista y de opacidades
       lista.splice(index, 1);
+      opacidades.splice(index, 1);
       guardar();
-      // No hace falta redibujar ahora; el siguiente giro repintará.
+
+      // Reajusta opacidades (reinicia a 1 para los restantes)
+      opacidades = lista.map(() => 1);
+
+      // Redibuja la ruleta ya “recalculada”
+      redibujar();
+
+      // Pequeña pausa estética opcional
+      await sleep(150);
+
     }else{
-      // 3er giro → ganador
+      // 3er giro: GANADOR (sin desvanecer)
       resultado.innerText = "🏆 " + elegido.nombre + " GANADOR 🎉";
       hablar("Tenemos ganador. " + elegido.nombre, 0.8, 1.2);
 
