@@ -39,7 +39,16 @@ button{
 #iniciar{background:#facc15;}
 #limpiar{background:#dc2626;color:white;}
 
-/* Contenedor para poner puntero fijo encima del canvas */
+/* 🔥 MOSTRAR NOMBRE SELECCIONADO */
+#resultado{
+    font-size:30px;
+    margin-top:20px;
+    font-weight:bold;
+    min-height:40px;
+    transition: all .3s;
+}
+
+/* Contenedor para puntero */
 .ruleta-wrapper{
     position: relative;
     width: 350px;
@@ -52,25 +61,19 @@ canvas{
     border-radius:50%;
 }
 
-/* Puntero fijo (flecha) centrado arriba, apuntando hacia abajo */
+/* Flecha */
 .puntero{
     position: absolute;
-    top: -6px;                   /* leve superposición al borde */
+    top: -6px;
     left: 50%;
     transform: translateX(-50%);
     width: 0;
     height: 0;
     border-left: 14px solid transparent;
     border-right: 14px solid transparent;
-    border-bottom: 22px solid #ef4444; /* color de la flecha */
+    border-bottom: 22px solid #ef4444;
     filter: drop-shadow(0 2px 2px rgba(0,0,0,.5));
     z-index: 2;
-}
-
-#resultado{
-    font-size:22px;
-    margin-top:20px;
-    font-weight:bold;
 }
 </style>
 </head>
@@ -87,9 +90,8 @@ canvas{
 <button id="limpiar">Limpiar Lista</button>
 </div>
 
-<!-- Envolvemos el canvas con un contenedor para poner el puntero encima -->
 <div class="ruleta-wrapper">
-  <div class="puntero" aria-hidden="true"></div>
+  <div class="puntero"></div>
   <canvas id="ruleta" width="350" height="350"></canvas>
 </div>
 
@@ -100,15 +102,14 @@ let lista = JSON.parse(localStorage.getItem("lista_ruleta")) || [];
 const canvas = document.getElementById("ruleta");
 const ctx = canvas.getContext("2d");
 let girando=false;
-let anguloActual=0;              // rotación acumulada de la ruleta
-let indiceSeleccionado = -1;     // para resaltar el ganador
+let anguloActual=0;
+let indiceSeleccionado = -1;
 
-const CX = 175, CY = 175, R = 170;          // centro y radio
-const TEXT_R_EDGE = R - 35;                 // radio cercano al borde (por si quieres volver) 
-const TEXT_R_CENTER = R - 60;               // ⬅️ CAMBIO: texto más adentro para centrar sin cortar
-const PUNTERO_ANG = -Math.PI/2;             // Flecha fija hacia arriba
+const CX = 175, CY = 175, R = 170;
+const TEXT_R_CENTER = R - 60;
+const PUNTERO_ANG = -Math.PI/2;
 
-/* ========= Audio "tic" ========== */
+/* ========= AUDIO TIC ========= */
 let audioCtx = null;
 function initAudio(){
   if (!audioCtx) {
@@ -117,56 +118,28 @@ function initAudio(){
   }
   if (audioCtx.state === 'suspended') audioCtx.resume();
 }
-
 function playTick(){
   if (!audioCtx) return;
   const t = audioCtx.currentTime;
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
-
-  const base = 1550;
-  const jitter = (Math.random()*220) - 110; // ±110 Hz
-  osc.frequency.value = base + jitter;
+  osc.frequency.value = 1500;
   osc.type = 'square';
-
-  // Envoltura rápida
-  gain.gain.setValueAtTime(0.0, t);
-  gain.gain.linearRampToValueAtTime(0.14, t + 0.006);
+  gain.gain.setValueAtTime(0.15, t);
   gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
-
   osc.connect(gain).connect(audioCtx.destination);
   osc.start(t);
   osc.stop(t + 0.07);
 }
-/* ================================= */
 
-/* ========= Helper: texto ajustado y centrado ========= */
-// Reduce la fuente si el texto no cabe en el arco disponible.
-function drawFittedCenteredText(ctx, text, centerRadius, angleWidthRad, baseFontPx = 16, minFontPx = 10, paddingPx = 8){
-  // Ancho máximo permitido ~ arco útil en ese radio, menos padding a ambos lados.
-  const maxArcWidth = Math.max(40, (angleWidthRad * centerRadius) - (paddingPx * 2));
-
-  // Probar tamaños decrecientes hasta que quepa.
-  let size = baseFontPx;
-  ctx.font = `${size}px Arial`;
-  while (size > minFontPx && ctx.measureText(text).width > maxArcWidth){
-    size -= 1;
-    ctx.font = `${size}px Arial`;
-  }
-
-  // Estilo del texto y sombra ligera para legibilidad
+/* ========= TEXTO AJUSTADO ========= */
+function drawFittedCenteredText(ctx, text, centerRadius, angleWidthRad){
+  ctx.font = "16px Arial";
   ctx.fillStyle = "white";
-  ctx.textAlign = "center";     // ⬅️ CLAVE: centrado
+  ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.shadowColor = "rgba(0,0,0,0.4)";
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 1;
-  ctx.shadowOffsetY = 1;
-
-  // Dibuja el texto con su centro en (centerRadius, 0)
-  ctx.fillText(text, centerRadius, 0, maxArcWidth);
+  ctx.fillText(text, centerRadius, 0);
 }
-/* ===================================================== */
 
 function guardar(){
     localStorage.setItem("lista_ruleta",JSON.stringify(lista));
@@ -174,49 +147,32 @@ function guardar(){
 
 function dibujar(){
     ctx.clearRect(0,0,350,350);
-
-    if(lista.length===0){
-        return;
-    }
+    if(lista.length===0) return;
 
     const angulo = 2*Math.PI/lista.length;
 
     for(let i=0;i<lista.length;i++){
-        // Sector
         ctx.beginPath();
         ctx.moveTo(CX,CY);
         ctx.arc(CX,CY,R,i*angulo,(i+1)*angulo);
         ctx.fillStyle = `hsl(${i*360/lista.length},70%,50%)`;
         ctx.fill();
 
-        // ======= TEXTO CENTRADO EN EL SECTOR =======  // ⬅️ CAMBIO
         ctx.save();
         ctx.translate(CX,CY);
-        ctx.rotate(i*angulo + angulo/2);     // centro angular del sector
-        // Usamos un radio más hacia adentro para que no se corte
-        drawFittedCenteredText(ctx, lista[i].nombre, TEXT_R_CENTER, angulo, 16, 10, 10);
+        ctx.rotate(i*angulo + angulo/2);
+        drawFittedCenteredText(ctx, lista[i].nombre, TEXT_R_CENTER, angulo);
         ctx.restore();
-        // ===========================================
 
-        // Resalte del seleccionado
         if (i === indiceSeleccionado) {
-            ctx.save();
             ctx.lineWidth = 6;
-            ctx.strokeStyle = "#ffffffcc";
+            ctx.strokeStyle = "#fde047";
             ctx.beginPath();
-            ctx.arc(CX, CY, R-3, i*angulo, (i+1)*angulo);
+            ctx.arc(CX, CY, R-10, i*angulo, (i+1)*angulo);
             ctx.stroke();
-
-            ctx.lineWidth = 6;
-            ctx.strokeStyle = "#fde047"; // amarillo
-            ctx.beginPath();
-            ctx.arc(CX, CY, R-12, i*angulo, (i+1)*angulo);
-            ctx.stroke();
-            ctx.restore();
         }
     }
 
-    // Borde exterior
     ctx.beginPath();
     ctx.lineWidth = 4;
     ctx.strokeStyle = "#0f172a";
@@ -224,44 +180,6 @@ function dibujar(){
     ctx.stroke();
 }
 
-// Dibujo inicial con la rotación actual
-redibujarConRotacion();
-
-document.getElementById("agregar").onclick=function(){
-    const nombre=document.getElementById("nombre").value.trim();
-    const numero=document.getElementById("numero").value.trim();
-    if(!nombre || !numero) return alert("Completa los datos");
-
-    if(lista.some(x=>x.numero==numero)){
-        alert("Ese número ya fue agregado");
-        return;
-    }
-
-    lista.push({nombre,numero});
-    guardar();
-    redibujarConRotacion();
-    document.getElementById("nombre").value="";
-    document.getElementById("numero").value="";
-};
-
-document.getElementById("limpiar").onclick=function(){
-    lista=[];
-    guardar();
-    indiceSeleccionado=-1;
-    anguloActual=0;
-    redibujarConRotacion();
-    document.getElementById("resultado").innerText="";
-};
-
-function hablar(texto){
-    const msg=new SpeechSynthesisUtterance(texto);
-    msg.lang="es-MX";
-    msg.rate=0.9;
-    speechSynthesis.cancel();
-    speechSynthesis.speak(msg);
-}
-
-// Redibuja respetando la rotación actual del canvas
 function redibujarConRotacion(){
     ctx.save();
     ctx.clearRect(0,0,350,350);
@@ -272,104 +190,40 @@ function redibujarConRotacion(){
     ctx.restore();
 }
 
-/**
- * Easing functions (para variar la "sensación" del giro)
- */
-const easings = {
-  easeOutCubic: t => 1 - Math.pow(1 - t, 3),
-  easeOutQuint: t => 1 - Math.pow(1 - t, 5),
-  easeOutExpo:  t => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t)),
-  easeOutBack:  t => {
-      const s = 1.70158;
-      const inv = t - 1;
-      return 1 + (s + 1)*Math.pow(inv,3) + s*Math.pow(inv,2);
-  }
-};
+redibujarConRotacion();
 
-/**
- * Gira la ruleta y deja el centro del segmento 'index' justo bajo el puntero fijo,
- * que está apuntando hacia arriba (ángulo -PI/2).
- * - Vueltas, duración, dirección y easing aleatorios en cada giro.
- * - Genera "tic" cada vez que el puntero cruza una separación de sector.
- */
+/* ========= MOSTRAR NOMBRE 3 SEGUNDOS ========= */
+function mostrarNombreAntesDeGirar(nombre){
+    const r = document.getElementById("resultado");
+    r.innerText = "🎯 " + nombre;
+}
+
+/* ========= GIRAR ========= */
 function girarYSeleccionar(index, callback){
     if (girando) return;
     girando = true;
 
     const n = lista.length;
     const anguloSeg = 2*Math.PI/n;
-    const dosPI = 2*Math.PI;
+    const vueltas = 6;
+    const duracion = 3000;
 
-    // Ángulo actual normalizado (por si venimos de un giro previo)
-    const anguloInicio = ((anguloActual % dosPI) + dosPI) % dosPI;
-
-    // Centro del segmento objetivo
-    const anguloCentroSegmento = index*anguloSeg + anguloSeg/2;
-
-    // Queremos que (anguloCentroSegmento + anguloFinal) ≡ PUNTERO_ANG  (mod 2π)
-    // Desde anguloInicio, deltaNorm mínimo positivo:
-    let deltaNorm = (PUNTERO_ANG - anguloCentroSegmento - anguloInicio) % dosPI;
-    deltaNorm = (deltaNorm + dosPI) % dosPI;
-
-    // Aleatoriedades del giro
-    const vueltas = Math.floor(5 + Math.random()*6);            // 5..10 vueltas
-    const duracion = 2200 + Math.random()*2200;                 // 2200..4400 ms
-    const dir = Math.random() < 0.5 ? 1 : -1;                   // horario/antihorario
-    const easingNames = Object.keys(easings);
-    const easing = easings[easingNames[Math.floor(Math.random()*easingNames.length)]];
-
-    // Si vamos en sentido positivo: sumamos deltaNorm
-    // Si vamos en sentido negativo: desplazamos hacia atrás lo equivalente
-    const deltaAtras = (dosPI - deltaNorm) % dosPI;
-    const deltaTotal = dir === 1
-        ? vueltas*dosPI + deltaNorm
-        : - (vueltas*dosPI + deltaAtras);
-
-    // ---- Control de "tic" por cruce de separaciones ----
-    // k = índice de sector cuyo LIMITE está bajo el puntero (0..n-1).
-    let prevK = null;
-    function actualizarTic(theta){
-        const rel = ((PUNTERO_ANG - theta) % dosPI + dosPI) % dosPI;
-        const k = Math.floor(rel / anguloSeg);
-        if (prevK === null){
-            prevK = k;
-            return;
-        }
-        if (k !== prevK){
-            playTick();
-            prevK = k;
-        }
-    }
-    // -----------------------------------------------------
-
-    // Aseguramos que el AudioContext esté activo
-    initAudio();
+    const anguloCentro = index*anguloSeg + anguloSeg/2;
+    const delta = (PUNTERO_ANG - anguloCentro);
 
     const inicio = performance.now();
-    function animar(tiempo){
-        let p = (tiempo - inicio) / duracion;
-        if (p > 1) p = 1;
 
-        const e = easing(p);
-        const theta = anguloInicio + deltaTotal * e;
-        anguloActual = theta;
+    function animar(t){
+        let p = (t - inicio)/duracion;
+        if(p>1) p=1;
 
-        // Actualizar "tic" en función del ángulo actual
-        const dospiNorm = ((theta % dosPI)+dosPI)%dosPI;
-        actualizarTic(dospiNorm);
-
+        anguloActual = delta*p + vueltas*2*Math.PI*p;
         redibujarConRotacion();
 
-        if (p < 1){
-            requestAnimationFrame(animar);
-        }else{
-            // Aterrizar exacto
-            const anguloFinal = anguloInicio + deltaTotal;
-            anguloActual = ((anguloFinal % dosPI) + dosPI) % dosPI;
-
-            indiceSeleccionado = index; // resalte
+        if(p<1) requestAnimationFrame(animar);
+        else{
+            indiceSeleccionado = index;
             redibujarConRotacion();
-
             girando = false;
             callback(index);
         }
@@ -378,75 +232,50 @@ function girarYSeleccionar(index, callback){
     requestAnimationFrame(animar);
 }
 
+/* ========= BOTÓN INICIAR ========= */
 document.getElementById("iniciar").onclick=async function(){
+
     if(lista.length < 3){
         alert("Necesitas mínimo 3 participantes");
         return;
     }
 
-    initAudio(); // asegura audio listo al primer clic
+    initAudio();
 
     let copia=[...lista];
 
     for(let i=0;i<3;i++){
+
+        const index = Math.floor(Math.random()*copia.length);
+        const elegido = copia[index];
+
+        // 🔥 MOSTRAR NOMBRE 3 SEGUNDOS
+        mostrarNombreAntesDeGirar(elegido.nombre);
+        await new Promise(r=>setTimeout(r,3000));
+
         await new Promise(resolve=>{
-            // Índice aleatorio sobre la lista "copia"
-            const index = Math.floor(Math.random()*copia.length);
             girarYSeleccionar(index, seleccionado=>{
-                const elegido=copia[seleccionado];
+                const e=copia[seleccionado];
+
                 if(i<2){
-                    document.getElementById("resultado").innerText=elegido.nombre+" - FUERA ❌";
-                    hablar(elegido.nombre+" fuera");
-                    // Eliminamos y limpiamos resalte para la siguiente ronda
+                    document.getElementById("resultado").innerText=e.nombre+" - FUERA ❌";
                     copia.splice(seleccionado,1);
-                    indiceSeleccionado = -1;
+                    indiceSeleccionado=-1;
                 }else{
-                    document.getElementById("resultado").innerText="🏆 "+elegido.nombre+" GANADOR 🎉";
-                    hablar(elegido.nombre+" ganador");
-                    lanzarConfeti();
-                    // Dejamos resalte del ganador visible
+                    document.getElementById("resultado").innerText="🏆 "+e.nombre+" GANADOR 🎉";
                 }
                 resolve();
             });
         });
 
         if(i<2){
-            // Persistimos la lista reducida
             lista=copia;
             guardar();
-
-            // No reseteamos anguloActual para que cada giro inicie distinto
             redibujarConRotacion();
-
-            // Pausa entre giros (ajústalo a tu gusto)
             await new Promise(r=>setTimeout(r,4000));
         }
     }
 };
-
-function lanzarConfeti(){
-    for(let i=0;i<200;i++){
-        const div=document.createElement("div");
-        div.style.position="fixed";
-        div.style.width="6px";
-        div.style.height="6px";
-        div.style.background=`hsl(${Math.random()*360},100%,50%)`;
-        div.style.left=Math.random()*100+"vw";
-        div.style.top="-10px";
-        div.style.zIndex=9999;
-        document.body.appendChild(div);
-
-        const anim=div.animate([
-            {transform:"translateY(0)"},
-            {transform:"translateY(100vh)"}
-        ],{
-            duration:2000+Math.random()*2000,
-            easing:"linear"
-        });
-
-        anim.onfinish=()=>div.remove();
-    }
-}
 </script>
 
 </body>
