@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ruleta Casino PRO MAX</title>
+<title>Ruleta Casino PRO</title>
 
 <link rel="apple-touch-icon" sizes="1024x1024" href="icono.png">
 
@@ -15,9 +15,7 @@ body{
     background: radial-gradient(circle at top,#1b2a49,#0f172a);
     color:white;
 }
-
 h1{margin-top:20px;}
-
 input{
     padding:10px;
     margin:5px;
@@ -25,7 +23,6 @@ input{
     border:none;
     width:200px;
 }
-
 button{
     padding:10px 20px;
     margin:10px;
@@ -34,58 +31,25 @@ button{
     font-weight:bold;
     cursor:pointer;
 }
-
 #agregar{background:#16a34a;color:white;}
 #iniciar{background:#facc15;}
 #limpiar{background:#dc2626;color:white;}
-
 #resultado{
     font-size:30px;
     margin-top:20px;
     font-weight:bold;
     min-height:40px;
 }
-
-/* CONTENEDOR */
 .ruleta-wrapper{
     position: relative;
-    width: 360px;
-    height: 360px;
-    margin: 20px auto;
+    width: 350px;
+    height: 350px;
+    margin: 20px auto 0;
 }
-
-/* LED RING */
-.led-ring{
-    position:absolute;
-    width:360px;
-    height:360px;
-    border-radius:50%;
-    animation: girarLED 8s linear infinite;
-}
-
-.led{
-    position:absolute;
-    width:10px;
-    height:10px;
-    border-radius:50%;
-    background:#ffd700;
-    box-shadow:0 0 8px #fff, 0 0 15px #ffd700;
-}
-
-@keyframes girarLED{
-    from{transform:rotate(0deg);}
-    to{transform:rotate(360deg);}
-}
-
 canvas{
-    position:absolute;
-    top:5px;
-    left:5px;
     background:white;
     border-radius:50%;
-    z-index:1;
 }
-
 .puntero{
     position: absolute;
     top: -6px;
@@ -94,37 +58,13 @@ canvas{
     border-left: 14px solid transparent;
     border-right: 14px solid transparent;
     border-bottom: 22px solid #ef4444;
-    z-index: 3;
-}
-
-/* PANTALLA GANADOR */
-#pantallaGanador{
-    position:fixed;
-    inset:0;
-    background:#000c;
-    display:none;
-    align-items:center;
-    justify-content:center;
-    z-index:9999;
-}
-
-#ganadorTexto{
-    font-size:clamp(40px,8vw,120px);
-    font-weight:bold;
-    color:#ffd700;
-    text-shadow:0 0 20px #fff, 0 0 40px #ffd700;
-    animation:pulse 1s infinite alternate;
-}
-
-@keyframes pulse{
-    from{transform:scale(1);}
-    to{transform:scale(1.1);}
+    z-index: 2;
 }
 </style>
 </head>
 <body>
 
-<h1>🎰 Ruleta Casino PRO MAX</h1>
+<h1>🎰 Ruleta Casino PRO</h1>
 
 <input id="nombre" placeholder="Nombre">
 <input id="numero" placeholder="Número" type="number">
@@ -136,21 +76,11 @@ canvas{
 </div>
 
 <div class="ruleta-wrapper">
-
-<div class="led-ring" id="ledRing"></div>
-
-<div class="puntero"></div>
-
-<canvas id="ruleta" width="350" height="350"></canvas>
-
+  <div class="puntero"></div>
+  <canvas id="ruleta" width="350" height="350"></canvas>
 </div>
 
 <div id="resultado"></div>
-
-<!-- PANTALLA GANADOR -->
-<div id="pantallaGanador" onclick="this.style.display='none'">
-<div id="ganadorTexto"></div>
-</div>
 
 <script>
 let lista = JSON.parse(localStorage.getItem("lista_ruleta")) || [];
@@ -159,30 +89,17 @@ const ctx = canvas.getContext("2d");
 
 let girando=false;
 let anguloActual=0;
-let indiceSeleccionado=-1;
+let indiceSeleccionado = -1;
 
-const CX=175,CY=175,R=170;
-const PUNTERO_ANG=-Math.PI/2;
+const CX = 175, CY = 175, R = 170;
+const TEXT_R_CENTER = R - 60;
+const PUNTERO_ANG = -Math.PI/2;
 
-/* ====== CREAR LEDS ====== */
-const ring=document.getElementById("ledRing");
-for(let i=0;i<40;i++){
-    const led=document.createElement("div");
-    led.className="led";
-    const ang=(i/40)*2*Math.PI;
-    const x=180+170*Math.cos(ang)-5;
-    const y=180+170*Math.sin(ang)-5;
-    led.style.left=x+"px";
-    led.style.top=y+"px";
-    ring.appendChild(led);
-}
-
-/* ====== GUARDAR ====== */
 function guardar(){
  localStorage.setItem("lista_ruleta",JSON.stringify(lista));
 }
 
-/* ====== DIBUJAR ====== */
+/* ===== DIBUJAR ===== */
 function dibujar(){
  ctx.clearRect(0,0,350,350);
  if(lista.length===0) return;
@@ -233,11 +150,11 @@ function redibujar(){
 
 redibujar();
 
-/* ====== AGREGAR ====== */
-document.getElementById("agregar").onclick=function(){
- const n=document.getElementById("nombre").value.trim();
- const num=document.getElementById("numero").value.trim();
- if(!n||!num) return alert("Completa los datos");
+/* ===== AGREGAR ===== */
+agregar.onclick=function(){
+ const n=nombre.value.trim();
+ const num=numero.value.trim();
+ if(!n||!num) return alert("Completa datos");
 
  if(lista.some(x=>x.numero==num))
   return alert("Número repetido");
@@ -250,51 +167,48 @@ document.getElementById("agregar").onclick=function(){
  numero.value="";
 };
 
-/* ====== LIMPIAR ====== */
-document.getElementById("limpiar").onclick=function(){
+/* ===== LIMPIAR ===== */
+limpiar.onclick=function(){
  if(!confirm("¿Seguro que deseas borrar toda la lista?")) return;
 
  lista=[];
  guardar();
  indiceSeleccionado=-1;
  anguloActual=0;
-
  redibujar();
  resultado.innerText="";
 };
 
-/* ====== MOSTRAR GANADOR ====== */
-function mostrarGanadorGigante(nombre){
-
- document.getElementById("ganadorTexto").innerText=
- "🏆 "+nombre+" 🏆";
-
- document.getElementById("pantallaGanador").style.display="flex";
+/* ===== MOSTRAR NOMBRE ===== */
+function mostrarNombreAntesDeGirar(nombre){
+ resultado.innerText="🎯 "+nombre;
 }
 
-/* ====== GIRAR ====== */
-function girarYSeleccionar(index,callback){
+/* ===== GIRAR CORRECTO ===== */
+function girarYSeleccionar(index, callback){
 
  if(girando) return;
  girando=true;
 
  const n=lista.length;
  const ang=2*Math.PI/n;
- const vueltas=6;
- const dur=3000;
 
  const centro=index*ang+ang/2;
- const delta=PUNTERO_ANG-centro;
 
- ring.style.animationDuration="1s";
+ // 🔥 CLAVE: considerar rotación actual
+ let delta=PUNTERO_ANG - (centro + anguloActual);
 
+ const vueltas=6;
+ delta += vueltas*2*Math.PI;
+
+ const dur=3000;
  const inicio=performance.now();
 
  function anim(t){
   let p=(t-inicio)/dur;
   if(p>1)p=1;
 
-  anguloActual=delta*p+vueltas*2*Math.PI*p;
+  anguloActual += delta*(1/dur)*16;
   redibujar();
 
   if(p<1) requestAnimationFrame(anim);
@@ -302,9 +216,6 @@ function girarYSeleccionar(index,callback){
     indiceSeleccionado=index;
     redibujar();
     girando=false;
-
-    ring.style.animationDuration="8s";
-
     callback(index);
   }
  }
@@ -312,8 +223,8 @@ function girarYSeleccionar(index,callback){
  requestAnimationFrame(anim);
 }
 
-/* ====== INICIAR ====== */
-document.getElementById("iniciar").onclick=async function(){
+/* ===== INICIAR ===== */
+iniciar.onclick=async function(){
 
  if(lista.length<3)
   return alert("Necesitas mínimo 3 participantes");
@@ -323,23 +234,21 @@ document.getElementById("iniciar").onclick=async function(){
  for(let i=0;i<3;i++){
 
   const index=Math.floor(Math.random()*copia.length);
-  resultado.innerText="🎯 "+copia[index].nombre;
+  const elegido=copia[index];
 
+  mostrarNombreAntesDeGirar(elegido.nombre);
   await new Promise(r=>setTimeout(r,3000));
 
   await new Promise(res=>{
    girarYSeleccionar(index,sel=>{
-
     const e=copia[sel];
 
     if(i<2){
      resultado.innerText=e.nombre+" - FUERA ❌";
      copia.splice(sel,1);
      indiceSeleccionado=-1;
-    }
-    else{
+    }else{
      resultado.innerText="🏆 "+e.nombre+" GANADOR 🎉";
-     mostrarGanadorGigante(e.nombre);
     }
 
     res();
@@ -355,6 +264,5 @@ document.getElementById("iniciar").onclick=async function(){
  }
 };
 </script>
-
 </body>
 </html>
