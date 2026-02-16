@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ruleta Casino PRO</title>
+<title>Ruleta Casino PRO MAX</title>
 
 <link rel="apple-touch-icon" sizes="1024x1024" href="icono.png">
 
@@ -44,19 +44,46 @@ button{
     margin-top:20px;
     font-weight:bold;
     min-height:40px;
-    transition: all .3s;
 }
 
+/* CONTENEDOR */
 .ruleta-wrapper{
     position: relative;
-    width: 350px;
-    height: 350px;
-    margin: 20px auto 0;
+    width: 360px;
+    height: 360px;
+    margin: 20px auto;
+}
+
+/* LED RING */
+.led-ring{
+    position:absolute;
+    width:360px;
+    height:360px;
+    border-radius:50%;
+    animation: girarLED 8s linear infinite;
+}
+
+.led{
+    position:absolute;
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    background:#ffd700;
+    box-shadow:0 0 8px #fff, 0 0 15px #ffd700;
+}
+
+@keyframes girarLED{
+    from{transform:rotate(0deg);}
+    to{transform:rotate(360deg);}
 }
 
 canvas{
+    position:absolute;
+    top:5px;
+    left:5px;
     background:white;
     border-radius:50%;
+    z-index:1;
 }
 
 .puntero{
@@ -64,19 +91,40 @@ canvas{
     top: -6px;
     left: 50%;
     transform: translateX(-50%);
-    width: 0;
-    height: 0;
     border-left: 14px solid transparent;
     border-right: 14px solid transparent;
     border-bottom: 22px solid #ef4444;
-    filter: drop-shadow(0 2px 2px rgba(0,0,0,.5));
-    z-index: 2;
+    z-index: 3;
+}
+
+/* PANTALLA GANADOR */
+#pantallaGanador{
+    position:fixed;
+    inset:0;
+    background:#000c;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:9999;
+}
+
+#ganadorTexto{
+    font-size:clamp(40px,8vw,120px);
+    font-weight:bold;
+    color:#ffd700;
+    text-shadow:0 0 20px #fff, 0 0 40px #ffd700;
+    animation:pulse 1s infinite alternate;
+}
+
+@keyframes pulse{
+    from{transform:scale(1);}
+    to{transform:scale(1.1);}
 }
 </style>
 </head>
 <body>
 
-<h1>🎰 Ruleta Casino PRO</h1>
+<h1>🎰 Ruleta Casino PRO MAX</h1>
 
 <input id="nombre" placeholder="Nombre">
 <input id="numero" placeholder="Número" type="number">
@@ -88,11 +136,21 @@ canvas{
 </div>
 
 <div class="ruleta-wrapper">
-  <div class="puntero"></div>
-  <canvas id="ruleta" width="350" height="350"></canvas>
+
+<div class="led-ring" id="ledRing"></div>
+
+<div class="puntero"></div>
+
+<canvas id="ruleta" width="350" height="350"></canvas>
+
 </div>
 
 <div id="resultado"></div>
+
+<!-- PANTALLA GANADOR -->
+<div id="pantallaGanador" onclick="this.style.display='none'">
+<div id="ganadorTexto"></div>
+</div>
 
 <script>
 let lista = JSON.parse(localStorage.getItem("lista_ruleta")) || [];
@@ -101,202 +159,200 @@ const ctx = canvas.getContext("2d");
 
 let girando=false;
 let anguloActual=0;
-let indiceSeleccionado = -1;
+let indiceSeleccionado=-1;
 
-const CX = 175, CY = 175, R = 170;
-const TEXT_R_CENTER = R - 60;
-const PUNTERO_ANG = -Math.PI/2;
+const CX=175,CY=175,R=170;
+const PUNTERO_ANG=-Math.PI/2;
 
-/* ========= AUDIO TIC ========= */
-let audioCtx = null;
-function initAudio(){
-  if (!audioCtx) {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    audioCtx = new AC();
-  }
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+/* ====== CREAR LEDS ====== */
+const ring=document.getElementById("ledRing");
+for(let i=0;i<40;i++){
+    const led=document.createElement("div");
+    led.className="led";
+    const ang=(i/40)*2*Math.PI;
+    const x=180+170*Math.cos(ang)-5;
+    const y=180+170*Math.sin(ang)-5;
+    led.style.left=x+"px";
+    led.style.top=y+"px";
+    ring.appendChild(led);
 }
 
-/* ========= TEXTO ========= */
-function drawFittedCenteredText(ctx, text, centerRadius){
-  ctx.font = "16px Arial";
-  ctx.fillStyle = "white";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(text, centerRadius, 0);
-}
-
+/* ====== GUARDAR ====== */
 function guardar(){
-    localStorage.setItem("lista_ruleta",JSON.stringify(lista));
+ localStorage.setItem("lista_ruleta",JSON.stringify(lista));
 }
 
+/* ====== DIBUJAR ====== */
 function dibujar(){
-    ctx.clearRect(0,0,350,350);
-    if(lista.length===0) return;
+ ctx.clearRect(0,0,350,350);
+ if(lista.length===0) return;
 
-    const angulo = 2*Math.PI/lista.length;
+ const ang=2*Math.PI/lista.length;
 
-    for(let i=0;i<lista.length;i++){
-        ctx.beginPath();
-        ctx.moveTo(CX,CY);
-        ctx.arc(CX,CY,R,i*angulo,(i+1)*angulo);
-        ctx.fillStyle = `hsl(${i*360/lista.length},70%,50%)`;
-        ctx.fill();
+ for(let i=0;i<lista.length;i++){
 
-        ctx.save();
-        ctx.translate(CX,CY);
-        ctx.rotate(i*angulo + angulo/2);
-        drawFittedCenteredText(ctx, lista[i].nombre, TEXT_R_CENTER);
-        ctx.restore();
+  ctx.beginPath();
+  ctx.moveTo(CX,CY);
+  ctx.arc(CX,CY,R,i*ang,(i+1)*ang);
+  ctx.fillStyle=`hsl(${i*360/lista.length},70%,50%)`;
+  ctx.fill();
 
-        if (i === indiceSeleccionado) {
-            ctx.lineWidth = 6;
-            ctx.strokeStyle = "#fde047";
-            ctx.beginPath();
-            ctx.arc(CX, CY, R-10, i*angulo, (i+1)*angulo);
-            ctx.stroke();
-        }
-    }
+  ctx.save();
+  ctx.translate(CX,CY);
+  ctx.rotate(i*ang+ang/2);
+  ctx.fillStyle="white";
+  ctx.textAlign="center";
+  ctx.font="16px Arial";
+  ctx.fillText(lista[i].nombre,R-60,0);
+  ctx.restore();
 
+  if(i===indiceSeleccionado){
+    ctx.lineWidth=6;
+    ctx.strokeStyle="#fde047";
     ctx.beginPath();
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = "#0f172a";
-    ctx.arc(CX, CY, R, 0, 2*Math.PI);
+    ctx.arc(CX,CY,R-10,i*ang,(i+1)*ang);
     ctx.stroke();
+  }
+ }
+
+ ctx.lineWidth=4;
+ ctx.strokeStyle="#0f172a";
+ ctx.beginPath();
+ ctx.arc(CX,CY,R,0,2*Math.PI);
+ ctx.stroke();
 }
 
-function redibujarConRotacion(){
-    ctx.save();
-    ctx.clearRect(0,0,350,350);
-    ctx.translate(CX,CY);
-    ctx.rotate(anguloActual);
-    ctx.translate(-CX,-CY);
-    dibujar();
-    ctx.restore();
+function redibujar(){
+ ctx.save();
+ ctx.translate(CX,CY);
+ ctx.rotate(anguloActual);
+ ctx.translate(-CX,-CY);
+ dibujar();
+ ctx.restore();
 }
 
-redibujarConRotacion();
+redibujar();
 
-/* ========= AGREGAR ========= */
+/* ====== AGREGAR ====== */
 document.getElementById("agregar").onclick=function(){
-    const nombre=document.getElementById("nombre").value.trim();
-    const numero=document.getElementById("numero").value.trim();
+ const n=document.getElementById("nombre").value.trim();
+ const num=document.getElementById("numero").value.trim();
+ if(!n||!num) return alert("Completa los datos");
 
-    if(!nombre || !numero){
-        alert("Completa los datos");
-        return;
-    }
+ if(lista.some(x=>x.numero==num))
+  return alert("Número repetido");
 
-    if(lista.some(x=>x.numero==numero)){
-        alert("Ese número ya fue agregado");
-        return;
-    }
+ lista.push({nombre:n,numero:num});
+ guardar();
+ redibujar();
 
-    lista.push({nombre,numero});
-    guardar();
-    redibujarConRotacion();
-
-    document.getElementById("nombre").value="";
-    document.getElementById("numero").value="";
+ nombre.value="";
+ numero.value="";
 };
 
-/* ========= LIMPIAR LISTA CON CONFIRMACIÓN ========= */
+/* ====== LIMPIAR ====== */
 document.getElementById("limpiar").onclick=function(){
+ if(!confirm("¿Seguro que deseas borrar toda la lista?")) return;
 
-    if(!confirm("¿Seguro que deseas borrar toda la lista?")) return;
+ lista=[];
+ guardar();
+ indiceSeleccionado=-1;
+ anguloActual=0;
 
-    lista = [];
-    guardar();
-
-    indiceSeleccionado = -1;
-    anguloActual = 0;
-
-    redibujarConRotacion();
-
-    document.getElementById("resultado").innerText = "";
+ redibujar();
+ resultado.innerText="";
 };
 
-/* ========= MOSTRAR NOMBRE ========= */
-function mostrarNombreAntesDeGirar(nombre){
-    document.getElementById("resultado").innerText = "🎯 " + nombre;
+/* ====== MOSTRAR GANADOR ====== */
+function mostrarGanadorGigante(nombre){
+
+ document.getElementById("ganadorTexto").innerText=
+ "🏆 "+nombre+" 🏆";
+
+ document.getElementById("pantallaGanador").style.display="flex";
 }
 
-/* ========= GIRAR ========= */
-function girarYSeleccionar(index, callback){
-    if (girando) return;
-    girando = true;
+/* ====== GIRAR ====== */
+function girarYSeleccionar(index,callback){
 
-    const n = lista.length;
-    const anguloSeg = 2*Math.PI/n;
-    const vueltas = 6;
-    const duracion = 3000;
+ if(girando) return;
+ girando=true;
 
-    const anguloCentro = index*anguloSeg + anguloSeg/2;
-    const delta = (PUNTERO_ANG - anguloCentro);
+ const n=lista.length;
+ const ang=2*Math.PI/n;
+ const vueltas=6;
+ const dur=3000;
 
-    const inicio = performance.now();
+ const centro=index*ang+ang/2;
+ const delta=PUNTERO_ANG-centro;
 
-    function animar(t){
-        let p = (t - inicio)/duracion;
-        if(p>1) p=1;
+ ring.style.animationDuration="1s";
 
-        anguloActual = delta*p + vueltas*2*Math.PI*p;
-        redibujarConRotacion();
+ const inicio=performance.now();
 
-        if(p<1) requestAnimationFrame(animar);
-        else{
-            indiceSeleccionado = index;
-            redibujarConRotacion();
-            girando = false;
-            callback(index);
-        }
-    }
+ function anim(t){
+  let p=(t-inicio)/dur;
+  if(p>1)p=1;
 
-    requestAnimationFrame(animar);
+  anguloActual=delta*p+vueltas*2*Math.PI*p;
+  redibujar();
+
+  if(p<1) requestAnimationFrame(anim);
+  else{
+    indiceSeleccionado=index;
+    redibujar();
+    girando=false;
+
+    ring.style.animationDuration="8s";
+
+    callback(index);
+  }
+ }
+
+ requestAnimationFrame(anim);
 }
 
-/* ========= INICIAR ========= */
+/* ====== INICIAR ====== */
 document.getElementById("iniciar").onclick=async function(){
 
-    if(lista.length < 3){
-        alert("Necesitas mínimo 3 participantes");
-        return;
+ if(lista.length<3)
+  return alert("Necesitas mínimo 3 participantes");
+
+ let copia=[...lista];
+
+ for(let i=0;i<3;i++){
+
+  const index=Math.floor(Math.random()*copia.length);
+  resultado.innerText="🎯 "+copia[index].nombre;
+
+  await new Promise(r=>setTimeout(r,3000));
+
+  await new Promise(res=>{
+   girarYSeleccionar(index,sel=>{
+
+    const e=copia[sel];
+
+    if(i<2){
+     resultado.innerText=e.nombre+" - FUERA ❌";
+     copia.splice(sel,1);
+     indiceSeleccionado=-1;
+    }
+    else{
+     resultado.innerText="🏆 "+e.nombre+" GANADOR 🎉";
+     mostrarGanadorGigante(e.nombre);
     }
 
-    initAudio();
+    res();
+   });
+  });
 
-    let copia=[...lista];
-
-    for(let i=0;i<3;i++){
-
-        const index = Math.floor(Math.random()*copia.length);
-        const elegido = copia[index];
-
-        mostrarNombreAntesDeGirar(elegido.nombre);
-        await new Promise(r=>setTimeout(r,3000));
-
-        await new Promise(resolve=>{
-            girarYSeleccionar(index, seleccionado=>{
-                const e=copia[seleccionado];
-
-                if(i<2){
-                    document.getElementById("resultado").innerText=e.nombre+" - FUERA ❌";
-                    copia.splice(seleccionado,1);
-                    indiceSeleccionado=-1;
-                }else{
-                    document.getElementById("resultado").innerText="🏆 "+e.nombre+" GANADOR 🎉";
-                }
-                resolve();
-            });
-        });
-
-        if(i<2){
-            lista=copia;
-            guardar();
-            redibujarConRotacion();
-            await new Promise(r=>setTimeout(r,4000));
-        }
-    }
+  if(i<2){
+   lista=copia;
+   guardar();
+   redibujar();
+   await new Promise(r=>setTimeout(r,4000));
+  }
+ }
 };
 </script>
 
