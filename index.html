@@ -402,7 +402,7 @@ function playFanfare() {
     // Secuencia de notas (C5, E5, G5, C6) y acorde final
     const C5 = 523.25, E5 = 659.25, G5 = 783.99, C6 = 1046.5;
 
-    // Trompeta principal (sawtooth con leve vibrato)
+    // Trompeta principal (sawtooth)
     const noteDur = 0.18;
     const gap = 0.05;
 
@@ -419,7 +419,7 @@ function playFanfare() {
     playTone(G5, chordStart, chordDur, "sawtooth", 0.22);
     playTone(C6, chordStart, chordDur, "sawtooth", 0.20);
 
-    // Refuerzo de graves (subarmónicos sencillos)
+    // Refuerzo de graves
     playTone(261.63, chordStart, 0.5, "square", 0.08); // C4
   } catch(e) {
     console.warn("Fanfarria no disponible:", e);
@@ -445,8 +445,9 @@ iniciar.onclick = async function(){
 
     if(i < 2){
       // 1º y 2º giro: eliminado
-      resultado.innerText = elegido.nombre + " - FUERA ❌";
-      // Anuncia nombre y número (en dígitos para dicción clara)
+      // >>> AQUI se muestra NOMBRE + NÚMERO en pantalla <<<
+      resultado.innerText = `${elegido.nombre} — Nº ${elegido.numero} — FUERA ❌`;
+      // Voz anunciando nombre + número
       hablar(`${elegido.nombre}, número ${numeroEnDigitos(elegido.numero)}. Fuera.`, 0.95, 1.05);
 
       // Mantener 3s el nombre mostrado
@@ -471,11 +472,13 @@ iniciar.onclick = async function(){
 
     }else{
       // 3er giro: GANADOR (sin desvanecer)
+      // >>> AQUI se muestra NOMBRE + NÚMERO en pantalla <<<
       resultado.innerText = `🏆 ${elegido.nombre} (Nº ${elegido.numero}) GANADOR 🎉`;
-      // Anuncia nombre y número (en dígitos para dicción clara)
+      // Voz con nombre + número
       hablar(`¡Tenemos ganador! ${elegido.nombre}, número ${numeroEnDigitos(elegido.numero)}.`, 0.85, 1.15);
 
       pantallaGanador.style.display = "flex";
+      // >>> AQUI se muestra NOMBRE + NÚMERO en pantalla gigante <<<
       pantallaGanador.innerHTML = `🏆<br>${elegido.nombre}<br>Nº ${elegido.numero}`;
 
       // Confeti + Fanfarria al ganador
