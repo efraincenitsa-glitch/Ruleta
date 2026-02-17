@@ -106,9 +106,8 @@
   }
 </style>
 
-<!-- ==== NUEVO: Librería de confeti (no interfiere con tu canvas) ==== -->
-<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" defer></script>
-<!-- ================================================================ -->
+<!-- Librería de confeti (no interfiere con tu canvas) -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
 </head>
 <body>
@@ -173,6 +172,11 @@ function hablar(texto, velocidad=0.9, tono=1){
     // Falla silenciosamente si el navegador no soporta TTS
     console.warn("TTS no disponible:", e);
   }
+}
+
+/* ===== Número en dígitos para mejor dicción TTS ===== */
+function numeroEnDigitos(n) {
+  return String(n).split("").join(" ");
 }
 
 function guardar(){
@@ -317,7 +321,7 @@ function girar(index){
   });
 }
 
-/* ==== NUEVO: Confeti para el ganador ==== */
+/* ===== Confeti para el ganador ===== */
 function confetiGanador() {
   // Si la librería no está disponible, salir sin romper nada
   if (typeof window.confetti !== "function") return;
@@ -360,7 +364,6 @@ function confetiGanador() {
     }));
   }, 250);
 }
-/* ==== FIN CONFETI ==== */
 
 /* ===== INICIAR ===== */
 iniciar.onclick = async function(){
@@ -382,7 +385,8 @@ iniciar.onclick = async function(){
     if(i < 2){
       // 1º y 2º giro: eliminado
       resultado.innerText = elegido.nombre + " - FUERA ❌";
-      hablar(elegido.nombre + " fuera");
+      // Anuncia nombre y número (en dígitos para dicción clara)
+      hablar(`${elegido.nombre}, número ${numeroEnDigitos(elegido.numero)}. Fuera.`, 0.95, 1.05);
 
       // Mantener 3s el nombre mostrado
       await sleep(3000);
@@ -406,13 +410,14 @@ iniciar.onclick = async function(){
 
     }else{
       // 3er giro: GANADOR (sin desvanecer)
-      resultado.innerText = "🏆 " + elegido.nombre + " GANADOR 🎉";
-      hablar("¡Tenemos ganador! " + elegido.nombre, 0.85, 1.15);
+      resultado.innerText = `🏆 ${elegido.nombre} (Nº ${elegido.numero}) GANADOR 🎉`;
+      // Anuncia nombre y número (en dígitos para dicción clara)
+      hablar(`¡Tenemos ganador! ${elegido.nombre}, número ${numeroEnDigitos(elegido.numero)}.`, 0.85, 1.15);
 
       pantallaGanador.style.display = "flex";
-      pantallaGanador.innerHTML = "🏆<br>" + elegido.nombre;
+      pantallaGanador.innerHTML = `🏆<br>${elegido.nombre}<br>Nº ${elegido.numero}`;
 
-      /* ==== NUEVO: lanzar confeti ==== */
+      // Confeti al ganador
       confetiGanador();
 
       setTimeout(()=>{
