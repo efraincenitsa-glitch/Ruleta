@@ -201,13 +201,19 @@ function dibujar(){
     ctx.fillStyle=`hsl(${i*360/lista.length},70%,50%)`;
     ctx.fill();
 
-    // Etiqueta
+    // Etiquetas (Nombre y Número) orientadas radialmente
     ctx.translate(CX,CY);
     ctx.rotate(i*ang + ang/2);
     ctx.fillStyle="white";
     ctx.textAlign="center";
+
+    // Nombre (línea 1)
     ctx.font="16px Arial";
-    ctx.fillText(lista[i].nombre, R-60, 0);
+    ctx.fillText(lista[i].nombre, R-60, -8);
+
+    // Número (línea 2, un poco más pequeño)
+    ctx.font="12px Arial";
+    ctx.fillText(`Nº ${lista[i].numero}`, R-60, 12);
 
     ctx.restore();
   }
@@ -445,9 +451,9 @@ iniciar.onclick = async function(){
 
     if(i < 2){
       // 1º y 2º giro: eliminado
-      // >>> AQUI se muestra NOMBRE + NÚMERO en pantalla <<<
+      // Mostrar NOMBRE + NÚMERO en pantalla
       resultado.innerText = `${elegido.nombre} — Nº ${elegido.numero} — FUERA ❌`;
-      // Voz anunciando nombre + número
+      // Voz anunciando nombre + número (deletreado para dicción clara)
       hablar(`${elegido.nombre}, número ${numeroEnDigitos(elegido.numero)}. Fuera.`, 0.95, 1.05);
 
       // Mantener 3s el nombre mostrado
@@ -472,13 +478,13 @@ iniciar.onclick = async function(){
 
     }else{
       // 3er giro: GANADOR (sin desvanecer)
-      // >>> AQUI se muestra NOMBRE + NÚMERO en pantalla <<<
+      // Mostrar NOMBRE + NÚMERO en pantalla
       resultado.innerText = `🏆 ${elegido.nombre} (Nº ${elegido.numero}) GANADOR 🎉`;
       // Voz con nombre + número
       hablar(`¡Tenemos ganador! ${elegido.nombre}, número ${numeroEnDigitos(elegido.numero)}.`, 0.85, 1.15);
 
       pantallaGanador.style.display = "flex";
-      // >>> AQUI se muestra NOMBRE + NÚMERO en pantalla gigante <<<
+      // Pantalla gigante con NOMBRE + NÚMERO
       pantallaGanador.innerHTML = `🏆<br>${elegido.nombre}<br>Nº ${elegido.numero}`;
 
       // Confeti + Fanfarria al ganador
