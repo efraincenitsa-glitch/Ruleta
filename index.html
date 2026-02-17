@@ -264,13 +264,19 @@ function dibujar(){
     ctx.fillStyle=`hsl(${i*360/lista.length},70%,50%)`;
     ctx.fill();
 
-    // Etiqueta
+    // Etiquetas (Nombre y Número) orientadas radialmente
     ctx.translate(CX,CY);
     ctx.rotate(i*ang + ang/2);
     ctx.fillStyle="white";
     ctx.textAlign="center";
+
+    // Nombre (línea superior)
     ctx.font="16px Arial";
-    ctx.fillText(lista[i].nombre, R-60, 0);
+    ctx.fillText(lista[i].nombre, R-60, -6);
+
+    // Número (debajo, más pequeño)
+    ctx.font="12px Arial";
+    ctx.fillText(`Nº ${lista[i].numero}`, R-60, 12);
 
     ctx.restore();
   }
