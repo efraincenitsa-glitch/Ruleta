@@ -106,9 +106,8 @@
   }
 </style>
 
-<!-- Librería de confeti (no interfiere con tu canvas) -->
+<!-- Librería de confeti -->
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-
 </head>
 <body>
 
@@ -365,6 +364,68 @@ function confetiGanador() {
   }, 250);
 }
 
+/* ===== FANFARRIA (Web Audio API, sin archivos) ===== */
+let audioCtx = null;
+function ensureAudioContext() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === "suspended") {
+    audioCtx.resume();
+  }
+}
+
+function playTone(freq, startTime, duration, type = "sawtooth", volume = 0.2) {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, startTime);
+
+  // Envolvente (ADSR simple)
+  const attack = 0.02, decay = 0.10, sustain = 0.7, release = 0.12;
+  gain.gain.setValueAtTime(0, startTime);
+  gain.gain.linearRampToValueAtTime(volume, startTime + attack);
+  gain.gain.linearRampToValueAtTime(volume * sustain, startTime + attack + decay);
+  gain.gain.setValueAtTime(volume * sustain, startTime + duration - release);
+  gain.gain.linearRampToValueAtTime(0.0001, startTime + duration);
+
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.02);
+}
+
+function playFanfare() {
+  try {
+    ensureAudioContext();
+    const now = audioCtx.currentTime;
+
+    // Secuencia de notas (C5, E5, G5, C6) y acorde final
+    const C5 = 523.25, E5 = 659.25, G5 = 783.99, C6 = 1046.5;
+
+    // Trompeta principal (sawtooth con leve vibrato)
+    const noteDur = 0.18;
+    const gap = 0.05;
+
+    playTone(C5, now + 0*(noteDur+gap), noteDur, "sawtooth", 0.22);
+    playTone(E5, now + 1*(noteDur+gap), noteDur, "sawtooth", 0.22);
+    playTone(G5, now + 2*(noteDur+gap), noteDur, "sawtooth", 0.22);
+    playTone(C6, now + 3*(noteDur+gap), noteDur, "sawtooth", 0.22);
+
+    // Acorde final más largo
+    const chordStart = now + 4*(noteDur+gap) + 0.02;
+    const chordDur = 0.7;
+    playTone(C5, chordStart, chordDur, "sawtooth", 0.25);
+    playTone(E5, chordStart, chordDur, "sawtooth", 0.22);
+    playTone(G5, chordStart, chordDur, "sawtooth", 0.22);
+    playTone(C6, chordStart, chordDur, "sawtooth", 0.20);
+
+    // Refuerzo de graves (subarmónicos sencillos)
+    playTone(261.63, chordStart, 0.5, "square", 0.08); // C4
+  } catch(e) {
+    console.warn("Fanfarria no disponible:", e);
+  }
+}
+
 /* ===== INICIAR ===== */
 iniciar.onclick = async function(){
   if(girando) return;
@@ -417,8 +478,9 @@ iniciar.onclick = async function(){
       pantallaGanador.style.display = "flex";
       pantallaGanador.innerHTML = `🏆<br>${elegido.nombre}<br>Nº ${elegido.numero}`;
 
-      // Confeti al ganador
+      // Confeti + Fanfarria al ganador
       confetiGanador();
+      playFanfare();
 
       setTimeout(()=>{
         pantallaGanador.style.display="none";
@@ -432,4 +494,3 @@ iniciar.onclick = async function(){
 
 </body>
 </html>
-``
