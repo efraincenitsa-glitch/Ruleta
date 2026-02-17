@@ -105,6 +105,11 @@
       z-index:999;
   }
 </style>
+
+<!-- ==== NUEVO: Librería de confeti (no interfiere con tu canvas) ==== -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" defer></script>
+<!-- ================================================================ -->
+
 </head>
 <body>
 
@@ -156,12 +161,18 @@ function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
 /* ===== VOZ CASINO ===== */
 function hablar(texto, velocidad=0.9, tono=1){
-  const msg=new SpeechSynthesisUtterance(texto);
-  msg.lang="es-MX";
-  msg.rate=velocidad;
-  msg.pitch=tono;
-  speechSynthesis.cancel();
-  speechSynthesis.speak(msg);
+  try{
+    const msg=new SpeechSynthesisUtterance(texto);
+    msg.lang="es-MX";
+    msg.rate=velocidad;
+    msg.pitch=tono;
+    // Cancelar cualquier cola previa para evitar solapamientos
+    speechSynthesis.cancel();
+    speechSynthesis.speak(msg);
+  }catch(e){
+    // Falla silenciosamente si el navegador no soporta TTS
+    console.warn("TTS no disponible:", e);
+  }
 }
 
 function guardar(){
@@ -306,6 +317,51 @@ function girar(index){
   });
 }
 
+/* ==== NUEVO: Confeti para el ganador ==== */
+function confetiGanador() {
+  // Si la librería no está disponible, salir sin romper nada
+  if (typeof window.confetti !== "function") return;
+
+  // Estallido inicial
+  window.confetti({
+    particleCount: 140,
+    spread: 80,
+    startVelocity: 45,
+    scalar: 1,
+    origin: { y: 0.6 },
+    zIndex: 10000   // por encima de #pantallaGanador (z-index: 999)
+  });
+
+  // Lluvia breve desde ambos lados por ~2.5s
+  const duration = 2500;
+  const animationEnd = Date.now() + duration;
+  const defaults = { startVelocity: 35, spread: 70, ticks: 90, zIndex: 10000 };
+
+  function randomInRange(min, max) {
+    return Math.random() * (max - min) + min;
+  }
+
+  const interval = setInterval(function() {
+    const timeLeft = animationEnd - Date.now();
+    if (timeLeft <= 0) {
+      clearInterval(interval);
+      return;
+    }
+    const particleCount = Math.max(20, 60 * (timeLeft / duration));
+    // Izquierda
+    window.confetti(Object.assign({}, defaults, {
+      particleCount,
+      origin: { x: randomInRange(0.1, 0.3), y: randomInRange(0.1, 0.3) }
+    }));
+    // Derecha
+    window.confetti(Object.assign({}, defaults, {
+      particleCount,
+      origin: { x: randomInRange(0.7, 0.9), y: randomInRange(0.1, 0.3) }
+    }));
+  }, 250);
+}
+/* ==== FIN CONFETI ==== */
+
 /* ===== INICIAR ===== */
 iniciar.onclick = async function(){
   if(girando) return;
@@ -351,10 +407,13 @@ iniciar.onclick = async function(){
     }else{
       // 3er giro: GANADOR (sin desvanecer)
       resultado.innerText = "🏆 " + elegido.nombre + " GANADOR 🎉";
-      hablar("Tenemos ganador. " + elegido.nombre, 0.8, 1.2);
+      hablar("¡Tenemos ganador! " + elegido.nombre, 0.85, 1.15);
 
       pantallaGanador.style.display = "flex";
       pantallaGanador.innerHTML = "🏆<br>" + elegido.nombre;
+
+      /* ==== NUEVO: lanzar confeti ==== */
+      confetiGanador();
 
       setTimeout(()=>{
         pantallaGanador.style.display="none";
@@ -368,3 +427,4 @@ iniciar.onclick = async function(){
 
 </body>
 </html>
+``
