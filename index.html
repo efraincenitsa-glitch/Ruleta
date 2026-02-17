@@ -157,18 +157,81 @@ const PUNTERO_ANG=-Math.PI/2; // El puntero mira hacia arriba
 
 function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
-/* ===== VOZ CASINO ===== */
+/* ======= SOPORTE TTS PARA SAFARI: voces y priming ======= */
+let vocesCargadas = false;
+let vozSeleccionada = null;
+
+function cargarVoces() {
+  return new Promise(resolve => {
+    const asignar = () => {
+      const voces = speechSynthesis.getVoices() || [];
+      if (voces.length) {
+        vozSeleccionada =
+          voces.find(v => /es[-_]MX/i.test(v.lang)) ||
+          voces.find(v => /es[-_]ES/i.test(v.lang)) ||
+          voces.find(v => /^es/i.test(v.lang)) ||
+          null;
+        vocesCargadas = true;
+        resolve(voces);
+      } else {
+        resolve([]);
+      }
+    };
+
+    const vocesInmediatas = speechSynthesis.getVoices() || [];
+    if (vocesInmediatas.length) {
+      asignar();
+    } else {
+      // Safari carga voces después del evento
+      speechSynthesis.onvoiceschanged = () => {
+        speechSynthesis.onvoiceschanged = null;
+        asignar();
+      };
+      // Fallback por si no dispara el evento
+      setTimeout(asignar, 800);
+    }
+  });
+}
+
+let speechPrimingHecho = false;
+async function initSpeechOnce() {
+  if (!vocesCargadas) {
+    await cargarVoces();
+  }
+  // Priming: primera locución mínima para que Safari no corte la siguiente
+  if (!speechPrimingHecho) {
+    try {
+      const priming = new SpeechSynthesisUtterance(" ");
+      if (vozSeleccionada) priming.voice = vozSeleccionada;
+      priming.lang = vozSeleccionada?.lang || "es-MX";
+      priming.rate = 1.0;
+      priming.volume = 0.0001; // inaudible
+      speechSynthesis.speak(priming);
+    } catch (e) {}
+    speechPrimingHecho = true;
+  }
+}
+
+/* ===== VOZ CASINO (robusta para Safari) ===== */
 function hablar(texto, velocidad=0.9, tono=1){
   try{
-    const msg=new SpeechSynthesisUtterance(texto);
-    msg.lang="es-MX";
-    msg.rate=velocidad;
-    msg.pitch=tono;
-    // Cancelar cualquier cola previa para evitar solapamientos
-    speechSynthesis.cancel();
+    const msg = new SpeechSynthesisUtterance(texto);
+
+    if (vozSeleccionada) {
+      msg.voice = vozSeleccionada;
+      msg.lang = vozSeleccionada.lang;
+    } else {
+      msg.lang = "es-MX";
+    }
+
+    msg.rate = velocidad;
+    msg.pitch = tono;
+
+    // Evitar cancelaciones agresivas justo antes de hablar (Safari puede silenciar)
+    // if (speechSynthesis.speaking) { speechSynthesis.cancel(); }
+
     speechSynthesis.speak(msg);
   }catch(e){
-    // Falla silenciosamente si el navegador no soporta TTS
     console.warn("TTS no disponible:", e);
   }
 }
@@ -201,19 +264,13 @@ function dibujar(){
     ctx.fillStyle=`hsl(${i*360/lista.length},70%,50%)`;
     ctx.fill();
 
-    // Etiquetas (Nombre y Número) orientadas radialmente
+    // Etiqueta
     ctx.translate(CX,CY);
     ctx.rotate(i*ang + ang/2);
     ctx.fillStyle="white";
     ctx.textAlign="center";
-
-    // Nombre (línea 1)
     ctx.font="16px Arial";
-    ctx.fillText(lista[i].nombre, R-60, -8);
-
-    // Número (línea 2, un poco más pequeño)
-    ctx.font="12px Arial";
-    ctx.fillText(`Nº ${lista[i].numero}`, R-60, 12);
+    ctx.fillText(lista[i].nombre, R-60, 0);
 
     ctx.restore();
   }
@@ -434,6 +491,9 @@ function playFanfare() {
 
 /* ===== INICIAR ===== */
 iniciar.onclick = async function(){
+  // Gesto del usuario: inicializa voces/priming para Safari aquí
+  await initSpeechOnce();
+
   if(girando) return;
   if(lista.length < 3) return alert("Necesitas mínimo 3 participantes");
 
@@ -451,9 +511,8 @@ iniciar.onclick = async function(){
 
     if(i < 2){
       // 1º y 2º giro: eliminado
-      // Mostrar NOMBRE + NÚMERO en pantalla
       resultado.innerText = `${elegido.nombre} — Nº ${elegido.numero} — FUERA ❌`;
-      // Voz anunciando nombre + número (deletreado para dicción clara)
+      // Voz anunciando nombre + número (en dígitos para dicción clara)
       hablar(`${elegido.nombre}, número ${numeroEnDigitos(elegido.numero)}. Fuera.`, 0.95, 1.05);
 
       // Mantener 3s el nombre mostrado
@@ -478,13 +537,11 @@ iniciar.onclick = async function(){
 
     }else{
       // 3er giro: GANADOR (sin desvanecer)
-      // Mostrar NOMBRE + NÚMERO en pantalla
       resultado.innerText = `🏆 ${elegido.nombre} (Nº ${elegido.numero}) GANADOR 🎉`;
       // Voz con nombre + número
       hablar(`¡Tenemos ganador! ${elegido.nombre}, número ${numeroEnDigitos(elegido.numero)}.`, 0.85, 1.15);
 
       pantallaGanador.style.display = "flex";
-      // Pantalla gigante con NOMBRE + NÚMERO
       pantallaGanador.innerHTML = `🏆<br>${elegido.nombre}<br>Nº ${elegido.numero}`;
 
       // Confeti + Fanfarria al ganador
